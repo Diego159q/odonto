@@ -18,6 +18,26 @@ body {
 
 #root { min-height: 100vh; }
 
+.app-header-title {
+  font-size: 1.125rem !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined' !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  line-height: 1 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  word-wrap: normal !important;
+  direction: ltr !important;
+  -webkit-font-feature-settings: 'liga' !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+
 a { color: #60A5FA; }
 a:hover { color: #93C5FD; }
 

@@ -18,7 +18,7 @@ const Header = ({ onMenuClick }) => {
           <span className="material-symbols-outlined">menu</span>
         </button>
         <div className="hidden md:block min-w-0">
-          <h1 className="font-['Geist'] text-lg font-bold text-white leading-none">DentalCare System</h1>
+          <div className="app-header-title font-['Geist'] text-lg font-bold text-white leading-none">DentalCare System</div>
           <p className="text-[11px] text-slate-500 mt-1">Gestion clinica integral</p>
         </div>
 

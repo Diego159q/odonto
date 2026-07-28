@@ -6,20 +6,20 @@ const mainNav = [
   { path: '/dashboard', icon: 'dashboard', label: 'Dashboard', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
   { path: '/calendario-citas', icon: 'calendar_month', label: 'Agenda', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
   { path: '/pacientes', icon: 'group', label: 'Pacientes', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
-  { path: '/tratamientos', icon: 'heart_plus', label: 'Tratamientos', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
+  { path: '/tratamientos', icon: 'medical_services', label: 'Tratamientos', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
   { path: '/pagos', icon: 'payments', label: 'Pagos', roles: ['ADMINISTRADOR', 'RECEPCIONISTA'] },
 ];
 
 const secondaryNav = [
-  { path: '/citas', icon: 'calendar_check', label: 'Lista Citas', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
-  { path: '/diagnosticos', icon: 'biopsy', label: 'Diagnósticos', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
+  { path: '/citas', icon: 'event_available', label: 'Lista Citas', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
+  { path: '/diagnosticos', icon: 'science', label: 'Diagnosticos', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
   { path: '/planes-tratamiento', icon: 'description', label: 'Planes', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
   { path: '/recetas', icon: 'medication', label: 'Recetas', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
   { path: '/inventario', icon: 'inventory_2', label: 'Inventario', roles: ['ADMINISTRADOR'] },
   { path: '/proveedores', icon: 'local_shipping', label: 'Proveedores', roles: ['ADMINISTRADOR'] },
   { path: '/usuarios', icon: 'badge', label: 'Usuarios', roles: ['ADMINISTRADOR'] },
   { path: '/reportes', icon: 'bar_chart', label: 'Reportes', roles: ['ADMINISTRADOR'] },
-  { path: '/configuracion', icon: 'settings', label: 'Configuración', roles: ['ADMINISTRADOR'] },
+  { path: '/configuracion', icon: 'settings', label: 'Configuracion', roles: ['ADMINISTRADOR'] },
 ];
 
 const Sidebar = ({ isOpen = false, onClose }) => {
@@ -37,7 +37,7 @@ const Sidebar = ({ isOpen = false, onClose }) => {
             DentalCare
           </span>
           <span className="font-['Geist'] text-xs text-slate-400 mt-0.5 font-medium">
-            {user?.rol?.toLowerCase() === 'administrador' ? 'Administrador' : user?.rol || 'Gestión Clínica'}
+            {user?.rol?.toLowerCase() === 'administrador' ? 'Administrador' : user?.rol || 'Gestion Clinica'}
           </span>
         </div>
         <button type="button" onClick={onClose} className="ml-auto lg:hidden text-slate-400 hover:text-white">
