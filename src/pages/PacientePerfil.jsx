@@ -4,9 +4,10 @@ import { pacienteService, citaService, tratamientoService, pagoService } from '.
 import { toast } from 'react-toastify';
 
 const TABS = [
-  { key: 'info', label: 'Información Personal', icon: 'bi-person-badge' },
+  { key: 'expediente', label: 'Expediente', icon: 'bi-folder2-open' },
+  { key: 'info', label: 'Datos', icon: 'bi-person-badge' },
   { key: 'citas', label: 'Historial de Citas', icon: 'bi-calendar-check' },
-  { key: 'clinicas', label: 'Historias Clínicas', icon: 'bi-file-medical' },
+  { key: 'clinicas', label: 'Historias Clinicas', icon: 'bi-file-medical' },
   { key: 'odontograma', label: 'Odontograma', icon: 'bi-grid-3x3-gap-fill' },
   { key: 'tratamientos', label: 'Tratamientos', icon: 'bi-heart-pulse' },
   { key: 'pagos', label: 'Pagos', icon: 'bi-cash-coin' },
@@ -18,7 +19,7 @@ const PacientePerfil = () => {
 
   const [paciente, setPaciente] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('info');
+  const [activeTab, setActiveTab] = useState('expediente');
 
   const [citas, setCitas] = useState([]);
   const [tratamientos, setTratamientos] = useState([]);
@@ -43,11 +44,20 @@ const PacientePerfil = () => {
   }, [id, navigate]);
 
   useEffect(() => {
-    if (!paciente || activeTab === 'info') return;
+    if (!paciente || activeTab === 'info' || activeTab === 'clinicas' || activeTab === 'odontograma') return;
     const loadTabData = async () => {
       setSubLoading(true);
       try {
-        if (activeTab === 'citas') {
+        if (activeTab === 'expediente') {
+          const [citasRes, tratamientosRes, pagosRes] = await Promise.all([
+            citaService.listar({ pacienteId: id, page: 0, size: 10 }),
+            tratamientoService.listar({ pacienteId: id, page: 0, size: 10 }),
+            pagoService.listar({ pacienteId: id, page: 0, size: 10 }),
+          ]);
+          setCitas(citasRes.data.content || citasRes.data || []);
+          setTratamientos(tratamientosRes.data.content || tratamientosRes.data || []);
+          setPagos(pagosRes.data.content || pagosRes.data || []);
+        } else if (activeTab === 'citas') {
           const res = await citaService.listar({ pacienteId: id, page: 0, size: 10 });
           setCitas(res.data.content || res.data || []);
         } else if (activeTab === 'tratamientos') {
@@ -108,6 +118,38 @@ const PacientePerfil = () => {
     return '$' + Number(value).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  const expedienteEventos = [
+    ...citas.map((cita) => ({
+      id: `cita-${cita.id}`,
+      fecha: cita.fecha,
+      icon: 'bi-calendar-check',
+      color: 'primary',
+      tipo: 'Cita',
+      titulo: cita.motivo || 'Atencion registrada',
+      detalle: cita.estado || 'Sin estado',
+    })),
+    ...tratamientos.map((tratamiento) => ({
+      id: `tratamiento-${tratamiento.id}`,
+      fecha: tratamiento.fechaInicio,
+      icon: 'bi-heart-pulse',
+      color: 'success',
+      tipo: 'Tratamiento',
+      titulo: tratamiento.nombre || tratamiento.descripcion || 'Tratamiento registrado',
+      detalle: tratamiento.estado || 'Sin estado',
+    })),
+    ...pagos.map((pago) => ({
+      id: `pago-${pago.id}`,
+      fecha: pago.fecha,
+      icon: 'bi-cash-coin',
+      color: 'warning',
+      tipo: 'Pago',
+      titulo: pago.concepto || 'Pago registrado',
+      detalle: formatCurrency(pago.monto),
+    })),
+  ]
+    .filter((item) => item.fecha)
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    .slice(0, 8);
   const infoFields = [
     { label: 'Nombres', value: paciente?.nombres },
     { label: 'Apellidos', value: paciente?.apellidos },
@@ -201,6 +243,116 @@ const PacientePerfil = () => {
         ))}
       </ul>
 
+      {activeTab === 'expediente' && (
+        <div className="expediente-grid">
+          <div className="expediente-main">
+            <div className="card expediente-summary-card">
+              <div className="card-body p-4">
+                <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                  <div>
+                    <span className="expediente-kicker">Expediente del paciente</span>
+                    <h3 className="expediente-name">{paciente.nombres} {paciente.apellidos}</h3>
+                    <p className="text-muted mb-0">
+                      {paciente.telefono || 'Sin telefono'} {paciente.dni ? `- DNI ${paciente.dni}` : ''}
+                    </p>
+                  </div>
+                  <div className="d-flex gap-2 flex-wrap">
+                    <Link to={`/historias-clinicas/nueva/${paciente.id}`} className="btn btn-dental-primary d-inline-flex align-items-center gap-2">
+                      <i className="bi bi-file-medical"></i> Nueva nota clinica
+                    </Link>
+                    <Link to={`/pacientes/${paciente.id}/editar`} className="btn btn-outline-primary d-inline-flex align-items-center gap-2">
+                      <i className="bi bi-pencil"></i> Actualizar datos
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="expediente-alerts mt-4">
+                  <div className="expediente-alert">
+                    <small>Alergias</small>
+                    <strong>{paciente.alergias || 'Ninguna registrada'}</strong>
+                  </div>
+                  <div className="expediente-alert">
+                    <small>Condiciones</small>
+                    <strong>{paciente.enfermedadesPrevias || 'Ninguna registrada'}</strong>
+                  </div>
+                  <div className="expediente-alert">
+                    <small>Medicamentos</small>
+                    <strong>{paciente.medicamentosActuales || 'Ninguno registrado'}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="card mt-3">
+              <div className="card-header d-flex justify-content-between align-items-center">
+                <span><i className="bi bi-clock-history me-2 text-primary"></i>Linea de tiempo reciente</span>
+                {subLoading && <span className="spinner-border spinner-border-sm text-primary" role="status"></span>}
+              </div>
+              <div className="card-body p-0">
+                {expedienteEventos.length === 0 ? (
+                  <div className="text-center py-5">
+                    <i className="bi bi-journal-medical" style={{ fontSize: '3rem', color: '#ccc' }}></i>
+                    <p className="mt-3 text-muted mb-3">Todavia no hay movimientos en este expediente</p>
+                    <Link to={`/historias-clinicas/nueva/${paciente.id}`} className="btn btn-dental-primary">
+                      Registrar primera nota
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="expediente-timeline">
+                    {expedienteEventos.map((item) => (
+                      <div key={item.id} className="expediente-event">
+                        <div className={`expediente-event-icon text-${item.color}`}>
+                          <i className={`bi ${item.icon}`}></i>
+                        </div>
+                        <div>
+                          <div className="d-flex align-items-center gap-2 flex-wrap">
+                            <strong>{item.titulo}</strong>
+                            <span className="badge bg-light text-dark">{item.tipo}</span>
+                          </div>
+                          <small className="text-muted">{formatDate(item.fecha)} - {item.detalle}</small>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="expediente-side">
+            <div className="card">
+              <div className="card-header">
+                <i className="bi bi-lightning-charge-fill me-2 text-primary"></i>Acciones rapidas
+              </div>
+              <div className="list-group list-group-flush expediente-actions">
+                <Link to={`/citas/nueva?pacienteId=${paciente.id}`} className="list-group-item list-group-item-action">
+                  <i className="bi bi-calendar-plus"></i> Agendar cita
+                </Link>
+                <Link to={`/tratamientos/nuevo?pacienteId=${paciente.id}`} className="list-group-item list-group-item-action">
+                  <i className="bi bi-heart-pulse"></i> Nuevo tratamiento
+                </Link>
+                <Link to={`/historias-clinicas/paciente/${paciente.id}`} className="list-group-item list-group-item-action">
+                  <i className="bi bi-file-medical"></i> Ver historias clinicas
+                </Link>
+                <Link to={`/odontograma/paciente/${paciente.id}`} className="list-group-item list-group-item-action">
+                  <i className="bi bi-grid-3x3-gap-fill"></i> Odontograma
+                </Link>
+              </div>
+            </div>
+
+            <div className="card mt-3">
+              <div className="card-header">
+                <i className="bi bi-sticky-fill me-2 text-primary"></i>Notas importantes
+              </div>
+              <div className="card-body">
+                <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>
+                  {paciente.observaciones || 'Sin notas importantes. Puedes agregarlas editando el paciente.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {activeTab === 'info' && (
         <div className="row g-3">
           <div className="col-lg-8">

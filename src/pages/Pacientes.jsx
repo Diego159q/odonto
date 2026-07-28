@@ -256,10 +256,10 @@ const Pacientes = () => {
                       <div className="d-flex gap-1 justify-content-center">
                         <button
                           className="btn btn-sm btn-outline-primary"
-                          title="Ver perfil"
+                          title="Abrir expediente"
                           onClick={() => navigate(`/pacientes/${paciente.id}`)}
                         >
-                          <i className="bi bi-eye"></i>
+                          <i className="bi bi-folder2-open"></i>
                         </button>
                         <button
                           className="btn btn-sm btn-outline-success"
