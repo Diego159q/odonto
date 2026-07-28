@@ -1,101 +1,114 @@
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-const Sidebar = ({ isOpen }) => {
-  const { hasRole, logout } = useAuth();
+const mainNav = [
+  { path: '/dashboard', icon: 'dashboard', label: 'Dashboard', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
+  { path: '/calendario-citas', icon: 'calendar_month', label: 'Agenda', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
+  { path: '/pacientes', icon: 'group', label: 'Pacientes', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
+  { path: '/tratamientos', icon: 'heart_plus', label: 'Tratamientos', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
+  { path: '/pagos', icon: 'payments', label: 'Pagos', roles: ['ADMINISTRADOR', 'RECEPCIONISTA'] },
+];
+
+const secondaryNav = [
+  { path: '/citas', icon: 'calendar_check', label: 'Lista Citas', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
+  { path: '/diagnosticos', icon: 'biopsy', label: 'Diagnósticos', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
+  { path: '/planes-tratamiento', icon: 'description', label: 'Planes', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
+  { path: '/recetas', icon: 'medication', label: 'Recetas', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
+  { path: '/inventario', icon: 'inventory_2', label: 'Inventario', roles: ['ADMINISTRADOR'] },
+  { path: '/proveedores', icon: 'local_shipping', label: 'Proveedores', roles: ['ADMINISTRADOR'] },
+  { path: '/usuarios', icon: 'badge', label: 'Usuarios', roles: ['ADMINISTRADOR'] },
+  { path: '/reportes', icon: 'bar_chart', label: 'Reportes', roles: ['ADMINISTRADOR'] },
+  { path: '/configuracion', icon: 'settings', label: 'Configuración', roles: ['ADMINISTRADOR'] },
+];
+
+const Sidebar = () => {
+  const { user, hasRole, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-  const [showMore, setShowMore] = useState(false);
-
-  const mainItems = [
-    { path: '/dashboard', icon: 'bi-speedometer2', label: 'Dashboard', roles: ['ADMINISTRADOR','ODONTOLOGA','RECEPCIONISTA'] },
-    { path: '/calendario-citas', icon: 'bi-calendar-week', label: 'Citas', roles: ['ADMINISTRADOR','ODONTOLOGA','RECEPCIONISTA'] },
-    { path: '/pacientes', icon: 'bi-people', label: 'Pacientes', roles: ['ADMINISTRADOR','ODONTOLOGA','RECEPCIONISTA'] },
-    { path: '/tratamientos', icon: 'bi-heart-pulse', label: 'Tratamientos', roles: ['ADMINISTRADOR','ODONTOLOGA'] },
-    { path: '/pagos', icon: 'bi-cash-coin', label: 'Pagos', roles: ['ADMINISTRADOR','RECEPCIONISTA'] },
-  ];
-
-  const advancedItems = [
-    { path: '/citas', icon: 'bi-calendar-check', label: 'Lista de citas', roles: ['ADMINISTRADOR','ODONTOLOGA','RECEPCIONISTA'] },
-    { path: '/diagnosticos', icon: 'bi-clipboard2-pulse', label: 'Diagnosticos', roles: ['ADMINISTRADOR','ODONTOLOGA'] },
-    { path: '/planes-tratamiento', icon: 'bi-file-earmark-text', label: 'Planes', roles: ['ADMINISTRADOR','ODONTOLOGA'] },
-    { path: '/recetas', icon: 'bi-capsule', label: 'Recetas', roles: ['ADMINISTRADOR','ODONTOLOGA'] },
-    { path: '/inventario', icon: 'bi-box-seam', label: 'Inventario', roles: ['ADMINISTRADOR'] },
-    { path: '/proveedores', icon: 'bi-truck', label: 'Proveedores', roles: ['ADMINISTRADOR'] },
-    { path: '/usuarios', icon: 'bi-person-badge', label: 'Usuarios', roles: ['ADMINISTRADOR'] },
-    { path: '/reportes', icon: 'bi-bar-chart', label: 'Reportes', roles: ['ADMINISTRADOR'] },
-  ];
-
-  const visibleMainItems = useMemo(() => mainItems.filter((item) => hasRole(item.roles)), [hasRole]);
-  const visibleAdvancedItems = useMemo(() => advancedItems.filter((item) => hasRole(item.roles)), [hasRole]);
-
-  const renderItem = (item) => (
-    <NavLink
-      key={item.path}
-      to={item.path}
-      className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
-    >
-      <i className={`bi ${item.icon}`}></i>
-      {isOpen && <span className="sidebar-item-label">{item.label}</span>}
-    </NavLink>
-  );
-
   return (
-    <aside className={`dental-sidebar ${isOpen ? '' : 'collapsed'}`}>
-      <div className="sidebar-header">
-        <div className="sidebar-logo">
-          <i className="bi bi-droplet-half"></i>
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-[#1E293B] flex flex-col py-6 px-4 z-50 border-r border-slate-700/50">
+      <div className="mb-8 px-2 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-900/20">
+          <span className="material-symbols-outlined text-[26px]">dentistry</span>
         </div>
-        {isOpen && (
-          <div className="sidebar-brand">
-            <span className="sidebar-title">DentalPro</span>
-            <span className="sidebar-subtitle">Gestion Clinica</span>
-          </div>
-        )}
+        <div className="flex flex-col">
+          <span className="font-['Geist'] text-2xl font-bold text-white tracking-tight leading-none">
+            DentalCare
+          </span>
+          <span className="font-['Geist'] text-xs text-slate-400 mt-0.5 font-medium">
+            {user?.rol?.toLowerCase() === 'administrador' ? 'Administrador' : user?.rol || 'Gestión Clínica'}
+          </span>
+        </div>
       </div>
 
-      <nav className="sidebar-nav">
-        {visibleMainItems.map(renderItem)}
+      <nav className="flex-1 space-y-1.5 overflow-y-auto custom-scrollbar">
+        <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-1">
+          Principal
+        </div>
+        {mainNav.filter(item => hasRole(item.roles)).map(item => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) =>
+              `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 text-sm ${
+                isActive
+                  ? 'bg-slate-800 text-white font-semibold border-l-4 border-blue-500 shadow-sm'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-[22px]">{item.icon}</span>
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
 
-        {visibleAdvancedItems.length > 0 && (
-          <div className="sidebar-more">
-            <button
-              type="button"
-              className="sidebar-more-toggle"
-              onClick={() => setShowMore((current) => !current)}
-              aria-expanded={showMore}
-            >
-              <i className="bi bi-grid"></i>
-              {isOpen && <span className="sidebar-item-label">Mas opciones</span>}
-              {isOpen && <i className={`bi bi-chevron-${showMore ? 'up' : 'down'} ms-auto`}></i>}
-            </button>
-
-            {showMore && (
-              <div className="sidebar-more-list">
-                {visibleAdvancedItems.map(renderItem)}
-              </div>
-            )}
-          </div>
+        {secondaryNav.filter(item => hasRole(item.roles)).length > 0 && (
+          <>
+            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-1 pt-4">
+              Más Opciones
+            </div>
+            {secondaryNav.filter(item => hasRole(item.roles)).map(item => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 text-sm ${
+                    isActive
+                      ? 'bg-slate-800 text-white font-semibold border-l-4 border-blue-500 shadow-sm'
+                      : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                  }`
+                }
+              >
+                <span className="material-symbols-outlined text-[22px]">{item.icon}</span>
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
+          </>
         )}
       </nav>
 
-      <div className="sidebar-bottom">
-        <button className="sidebar-btn-primary" onClick={() => navigate('/calendario-citas')}>
-          <i className="bi bi-plus-lg"></i>
-          {isOpen && <span>Nueva Cita</span>}
+      <div className="mt-auto border-t border-slate-700/50 pt-4 space-y-2">
+        <button
+          onClick={() => navigate('/notificaciones')}
+          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors text-sm"
+        >
+          <span className="material-symbols-outlined text-[20px]">notifications</span>
+          <span>Notificaciones</span>
         </button>
-        <NavLink to="/configuracion" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
-          <i className="bi bi-question-circle"></i>
-          {isOpen && <span className="sidebar-item-label">Soporte</span>}
-        </NavLink>
-        <button className="sidebar-item" onClick={handleLogout}>
-          <i className="bi bi-box-arrow-right" style={{ color: 'var(--error)' }}></i>
-          {isOpen && <span className="sidebar-item-label" style={{ color: 'var(--error)' }}>Cerrar Sesion</span>}
+        <button
+          onClick={() => navigate('/perfil')}
+          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors text-sm"
+        >
+          <span className="material-symbols-outlined text-[20px]">person</span>
+          <span>Mi Perfil</span>
+        </button>
+        <button
+          onClick={() => { logout(); navigate('/login'); }}
+          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors text-sm"
+        >
+          <span className="material-symbols-outlined text-[20px] text-rose-400">logout</span>
+          <span>Cerrar Sesión</span>
         </button>
       </div>
     </aside>
