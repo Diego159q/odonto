@@ -110,7 +110,7 @@ const Dashboard = () => {
 
   const barData = {
     labels: ingresosMensuales.map((item) => item.mes || ''),
-    datasets: [{ label: 'Ingresos', data: ingresosMensuales.map((item) => item.total || 0), backgroundColor: 'rgba(13, 110, 253, 0.7)', borderColor: 'rgba(13, 110, 253, 1)', borderWidth: 1, borderRadius: 6 }],
+    datasets: [{ label: 'Ingresos', data: ingresosMensuales.map((item) => item.total || 0), backgroundColor: 'rgba(0, 102, 138, 0.7)', borderColor: 'rgba(0, 102, 138, 1)', borderWidth: 1, borderRadius: 6 }],
   };
 
   const doughnutData = {

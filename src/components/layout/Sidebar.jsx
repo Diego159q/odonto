@@ -1,14 +1,20 @@
 import React, { useMemo, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = ({ isOpen }) => {
-  const { hasRole } = useAuth();
+  const { hasRole, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
   const [showMore, setShowMore] = useState(false);
 
   const mainItems = [
-    { path: '/dashboard', icon: 'bi-speedometer2', label: 'Inicio', roles: ['ADMINISTRADOR','ODONTOLOGA','RECEPCIONISTA'] },
-    { path: '/calendario-citas', icon: 'bi-calendar-week', label: 'Agenda', roles: ['ADMINISTRADOR','ODONTOLOGA','RECEPCIONISTA'] },
+    { path: '/dashboard', icon: 'bi-speedometer2', label: 'Dashboard', roles: ['ADMINISTRADOR','ODONTOLOGA','RECEPCIONISTA'] },
+    { path: '/calendario-citas', icon: 'bi-calendar-week', label: 'Citas', roles: ['ADMINISTRADOR','ODONTOLOGA','RECEPCIONISTA'] },
     { path: '/pacientes', icon: 'bi-people', label: 'Pacientes', roles: ['ADMINISTRADOR','ODONTOLOGA','RECEPCIONISTA'] },
     { path: '/tratamientos', icon: 'bi-heart-pulse', label: 'Tratamientos', roles: ['ADMINISTRADOR','ODONTOLOGA'] },
     { path: '/pagos', icon: 'bi-cash-coin', label: 'Pagos', roles: ['ADMINISTRADOR','RECEPCIONISTA'] },
@@ -34,7 +40,7 @@ const Sidebar = ({ isOpen }) => {
       to={item.path}
       className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
     >
-      <i className={`bi ${item.icon} sidebar-item-icon`}></i>
+      <i className={`bi ${item.icon}`}></i>
       {isOpen && <span className="sidebar-item-label">{item.label}</span>}
     </NavLink>
   );
@@ -42,9 +48,17 @@ const Sidebar = ({ isOpen }) => {
   return (
     <aside className={`dental-sidebar ${isOpen ? '' : 'collapsed'}`}>
       <div className="sidebar-header">
-        <i className="bi bi-droplet-half sidebar-logo"></i>
-        {isOpen && <span className="sidebar-title">DentalCare</span>}
+        <div className="sidebar-logo">
+          <i className="bi bi-droplet-half"></i>
+        </div>
+        {isOpen && (
+          <div className="sidebar-brand">
+            <span className="sidebar-title">DentalPro</span>
+            <span className="sidebar-subtitle">Gestion Clinica</span>
+          </div>
+        )}
       </div>
+
       <nav className="sidebar-nav">
         {visibleMainItems.map(renderItem)}
 
@@ -56,7 +70,7 @@ const Sidebar = ({ isOpen }) => {
               onClick={() => setShowMore((current) => !current)}
               aria-expanded={showMore}
             >
-              <i className="bi bi-grid sidebar-item-icon"></i>
+              <i className="bi bi-grid"></i>
               {isOpen && <span className="sidebar-item-label">Mas opciones</span>}
               {isOpen && <i className={`bi bi-chevron-${showMore ? 'up' : 'down'} ms-auto`}></i>}
             </button>
@@ -69,6 +83,21 @@ const Sidebar = ({ isOpen }) => {
           </div>
         )}
       </nav>
+
+      <div className="sidebar-bottom">
+        <button className="sidebar-btn-primary" onClick={() => navigate('/calendario-citas')}>
+          <i className="bi bi-plus-lg"></i>
+          {isOpen && <span>Nueva Cita</span>}
+        </button>
+        <NavLink to="/configuracion" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
+          <i className="bi bi-question-circle"></i>
+          {isOpen && <span className="sidebar-item-label">Soporte</span>}
+        </NavLink>
+        <button className="sidebar-item" onClick={handleLogout}>
+          <i className="bi bi-box-arrow-right" style={{ color: 'var(--error)' }}></i>
+          {isOpen && <span className="sidebar-item-label" style={{ color: 'var(--error)' }}>Cerrar Sesion</span>}
+        </button>
+      </div>
     </aside>
   );
 };
