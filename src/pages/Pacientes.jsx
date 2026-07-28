@@ -255,11 +255,12 @@ const Pacientes = () => {
                     <td>
                       <div className="d-flex gap-1 justify-content-center">
                         <button
-                          className="btn btn-sm btn-outline-primary"
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
                           title="Abrir expediente"
                           onClick={() => navigate(`/pacientes/${paciente.id}`)}
                         >
                           <i className="bi bi-folder2-open"></i>
+                          <span>Expediente</span>
                         </button>
                         <button
                           className="btn btn-sm btn-outline-success"

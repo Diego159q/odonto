@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { pacienteService, citaService, tratamientoService, pagoService } from '../services/endpoints';
 import { toast } from 'react-toastify';
+import jsPDF from 'jspdf';
 
 const TABS = [
   { key: 'expediente', label: 'Expediente', icon: 'bi-folder2-open' },
@@ -118,6 +119,45 @@ const PacientePerfil = () => {
     return '$' + Number(value).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  const cleanPhone = (phone) => String(phone || '').replace(/\D/g, '');
+
+  const getWhatsappUrl = () => {
+    const phone = cleanPhone(paciente?.telefono);
+    const text = encodeURIComponent(`Hola ${paciente?.nombres || ''}, le escribimos de DentalCare para coordinar su atencion.`);
+    return phone ? `https://wa.me/51${phone}?text=${text}` : `https://wa.me/?text=${text}`;
+  };
+
+  const exportExpedientePdf = () => {
+    const doc = new jsPDF();
+    const fullName = `${paciente.nombres || ''} ${paciente.apellidos || ''}`.trim();
+    let y = 16;
+    doc.setFontSize(16);
+    doc.text('Expediente DentalCare', 14, y);
+    y += 10;
+    doc.setFontSize(12);
+    doc.text(`Paciente: ${fullName || '-'}`, 14, y); y += 7;
+    doc.text(`Telefono: ${paciente.telefono || '-'}`, 14, y); y += 7;
+    doc.text(`DNI: ${paciente.dni || '-'}`, 14, y); y += 10;
+    doc.setFontSize(13);
+    doc.text('Datos importantes', 14, y); y += 8;
+    doc.setFontSize(10);
+    doc.text(`Alergias: ${paciente.alergias || 'Ninguna registrada'}`, 14, y); y += 6;
+    doc.text(`Condiciones: ${paciente.enfermedadesPrevias || 'Ninguna registrada'}`, 14, y); y += 6;
+    doc.text(`Medicamentos: ${paciente.medicamentosActuales || 'Ninguno registrado'}`, 14, y); y += 10;
+    doc.setFontSize(13);
+    doc.text('Movimientos recientes', 14, y); y += 8;
+    doc.setFontSize(10);
+    if (expedienteEventos.length === 0) {
+      doc.text('Sin movimientos registrados.', 14, y);
+    } else {
+      expedienteEventos.forEach((item) => {
+        if (y > 275) { doc.addPage(); y = 16; }
+        doc.text(`${formatDate(item.fecha)} - ${item.tipo}: ${item.titulo} (${item.detalle})`, 14, y);
+        y += 6;
+      });
+    }
+    doc.save(`expediente-${paciente.id}.pdf`);
+  };
   const expedienteEventos = [
     ...citas.map((cita) => ({
       id: `cita-${cita.id}`,
@@ -260,6 +300,12 @@ const PacientePerfil = () => {
                     <Link to={`/historias-clinicas/nueva/${paciente.id}`} className="btn btn-dental-primary d-inline-flex align-items-center gap-2">
                       <i className="bi bi-file-medical"></i> Nueva nota clinica
                     </Link>
+                    <a href={getWhatsappUrl()} target="_blank" rel="noreferrer" className="btn btn-outline-success d-inline-flex align-items-center gap-2">
+                      <i className="bi bi-whatsapp"></i> WhatsApp
+                    </a>
+                    <button type="button" onClick={exportExpedientePdf} className="btn btn-outline-primary d-inline-flex align-items-center gap-2">
+                      <i className="bi bi-filetype-pdf"></i> PDF
+                    </button>
                     <Link to={`/pacientes/${paciente.id}/editar`} className="btn btn-outline-primary d-inline-flex align-items-center gap-2">
                       <i className="bi bi-pencil"></i> Actualizar datos
                     </Link>
@@ -348,6 +394,19 @@ const PacientePerfil = () => {
                 <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>
                   {paciente.observaciones || 'Sin notas importantes. Puedes agregarlas editando el paciente.'}
                 </p>
+              </div>
+            </div>
+
+            <div className="card mt-3">
+              <div className="card-header">
+                <i className="bi bi-paperclip me-2 text-primary"></i>Documentos y fotos
+              </div>
+              <div className="card-body">
+                <div className="expediente-upload-placeholder">
+                  <i className="bi bi-cloud-arrow-up"></i>
+                  <strong>Fotos, radiografias o expedientes antiguos</strong>
+                  <small>Listo para conectar almacenamiento. Por ahora puedes guardar el resumen en notas clinicas.</small>
+                </div>
               </div>
             </div>
           </div>

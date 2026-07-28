@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardService } from '../services/endpoints';
+import { dashboardService, citaService, pagoService } from '../services/endpoints';
 import { toast } from 'react-toastify';
 import {
   Chart as ChartJS,
@@ -21,19 +21,30 @@ const statCards = [
 const quickActions = [
   { to: '/calendario-citas', icon: 'bi-calendar-plus', label: 'Agendar cita', hint: 'Ver el dia y crear una nueva atencion' },
   { to: '/pacientes/nuevo', icon: 'bi-person-plus', label: 'Nuevo paciente', hint: 'Registrar datos basicos del cliente' },
-  { to: '/pacientes', icon: 'bi-search', label: 'Buscar paciente', hint: 'Abrir historial, citas y pagos' },
+  { to: '/pacientes', icon: 'bi-search', label: 'Buscar paciente', hint: 'Abrir expediente, citas y pagos' },
   { to: '/pagos', icon: 'bi-cash-coin', label: 'Registrar pago', hint: 'Controlar cobros y saldos' },
 ];
 
 const formatCurrency = (value) => {
-  if (value == null) return '$0';
-  return '$' + Number(value).toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  if (value == null) return 'S/ 0.00';
+  return 'S/ ' + Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
+
+const getToday = () => {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  return new Date(now.getTime() - offset * 60000).toISOString().slice(0, 10);
+};
+
+const normalizeList = (data) => Array.isArray(data) ? data : (data?.content || []);
 
 const Dashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [citasHoy, setCitasHoy] = useState([]);
+  const [deudas, setDeudas] = useState([]);
+  const [homeLoading, setHomeLoading] = useState(true);
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -49,6 +60,24 @@ const Dashboard = () => {
       }
     };
     fetchDashboard();
+  }, []);
+
+  useEffect(() => {
+    const loadHomeWork = async () => {
+      setHomeLoading(true);
+      const today = getToday();
+      try {
+        const [citasRes, deudasRes] = await Promise.allSettled([
+          citaService.listar({ fechaDesde: today, fechaHasta: today, page: 0, size: 6 }),
+          pagoService.deudasPendientes(),
+        ]);
+        if (citasRes.status === 'fulfilled') setCitasHoy(normalizeList(citasRes.value.data));
+        if (deudasRes.status === 'fulfilled') setDeudas(normalizeList(deudasRes.value.data).slice(0, 6));
+      } finally {
+        setHomeLoading(false);
+      }
+    };
+    loadHomeWork();
   }, []);
 
   if (loading) {
@@ -67,9 +96,7 @@ const Dashboard = () => {
         <div className="text-center">
           <i className="bi bi-exclamation-triangle-fill text-danger" style={{ fontSize: '3rem' }}></i>
           <p className="mt-3 text-muted">{error}</p>
-          <button className="btn btn-dental-primary mt-2" onClick={() => window.location.reload()}>
-            Reintentar
-          </button>
+          <button className="btn btn-dental-primary mt-2" onClick={() => window.location.reload()}>Reintentar</button>
         </div>
       </div>
     );
@@ -83,72 +110,28 @@ const Dashboard = () => {
 
   const barData = {
     labels: ingresosMensuales.map((item) => item.mes || ''),
-    datasets: [{
-      label: 'Ingresos',
-      data: ingresosMensuales.map((item) => item.total || 0),
-      backgroundColor: 'rgba(13, 110, 253, 0.7)',
-      borderColor: 'rgba(13, 110, 253, 1)',
-      borderWidth: 1,
-      borderRadius: 6,
-    }],
+    datasets: [{ label: 'Ingresos', data: ingresosMensuales.map((item) => item.total || 0), backgroundColor: 'rgba(13, 110, 253, 0.7)', borderColor: 'rgba(13, 110, 253, 1)', borderWidth: 1, borderRadius: 6 }],
   };
 
   const doughnutData = {
     labels: ['Atendidas', 'Canceladas'],
-    datasets: [{
-      data: [citasAtendidas, citasCanceladas],
-      backgroundColor: ['#4CAF50', '#EF5350'],
-      borderWidth: 0,
-    }],
+    datasets: [{ data: [citasAtendidas, citasCanceladas], backgroundColor: ['#4CAF50', '#EF5350'], borderWidth: 0 }],
   };
 
   const lineData = {
     labels: pacientesPorMes.map((item) => item.mes || ''),
-    datasets: [{
-      label: 'Pacientes',
-      data: pacientesPorMes.map((item) => item.total || 0),
-      fill: true,
-      backgroundColor: 'rgba(38, 166, 154, 0.15)',
-      borderColor: '#26A69A',
-      tension: 0.4,
-      pointBackgroundColor: '#26A69A',
-      pointBorderColor: '#fff',
-      pointBorderWidth: 2,
-      pointRadius: 5,
-    }],
+    datasets: [{ label: 'Pacientes', data: pacientesPorMes.map((item) => item.total || 0), fill: true, backgroundColor: 'rgba(38, 166, 154, 0.15)', borderColor: '#26A69A', tension: 0.4, pointBackgroundColor: '#26A69A', pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 5 }],
   };
 
-  const barOptions = {
+  const chartOptions = {
     responsive: true,
     plugins: { legend: { display: false } },
-    scales: {
-      y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
-      x: { grid: { display: false } },
-    },
+    scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } },
   };
 
-  const doughnutOptions = {
-    responsive: true,
-    plugins: {
-      legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true } },
-    },
-    cutout: '65%',
-  };
+  const doughnutOptions = { responsive: true, plugins: { legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true } } }, cutout: '65%' };
 
-  const lineOptions = {
-    responsive: true,
-    plugins: { legend: { display: false } },
-    scales: {
-      y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
-      x: { grid: { display: false } },
-    },
-  };
-
-  const getValue = (key) => {
-    const val = d[key];
-    if (key.startsWith('ingresos')) return formatCurrency(val);
-    return val ?? 0;
-  };
+  const getValue = (key) => key.startsWith('ingresos') ? formatCurrency(d[key]) : (d[key] ?? 0);
 
   return (
     <div className="fade-in">
@@ -163,71 +146,59 @@ const Dashboard = () => {
         {quickActions.map((action) => (
           <Link key={action.to} to={action.to} className="quick-action">
             <span className="quick-action-icon"><i className={`bi ${action.icon}`}></i></span>
-            <span>
-              <strong>{action.label}</strong>
-              <small>{action.hint}</small>
-            </span>
+            <span><strong>{action.label}</strong><small>{action.hint}</small></span>
           </Link>
         ))}
+      </div>
+
+      <div className="today-grid mb-4">
+        <div className="card today-card">
+          <div className="card-header d-flex justify-content-between align-items-center">
+            <span><i className="bi bi-calendar-day me-2 text-primary"></i>Agenda de hoy</span>
+            <Link to="/calendario-citas" className="btn btn-sm btn-outline-primary">Ver agenda</Link>
+          </div>
+          <div className="card-body p-0">
+            {homeLoading ? <div className="today-empty">Cargando...</div> : citasHoy.length === 0 ? (
+              <div className="today-empty">No hay citas para hoy</div>
+            ) : citasHoy.map((cita) => (
+              <Link key={cita.id} to="/citas" className="today-row">
+                <span className="today-time">{cita.horaInicio || cita.hora || '--:--'}</span>
+                <span><strong>{cita.pacienteNombre || cita.paciente || 'Paciente'}</strong><small>{cita.motivo || cita.estado || 'Cita programada'}</small></span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="card today-card">
+          <div className="card-header d-flex justify-content-between align-items-center">
+            <span><i className="bi bi-exclamation-circle me-2 text-warning"></i>Pagos pendientes</span>
+            <Link to="/pagos" className="btn btn-sm btn-outline-primary">Ver pagos</Link>
+          </div>
+          <div className="card-body p-0">
+            {homeLoading ? <div className="today-empty">Cargando...</div> : deudas.length === 0 ? (
+              <div className="today-empty">No hay deudas pendientes</div>
+            ) : deudas.map((deuda, index) => (
+              <Link key={deuda.id || index} to="/pagos" className="today-row">
+                <span className="today-money">{formatCurrency(deuda.saldo || deuda.deuda || deuda.montoPendiente || 0)}</span>
+                <span><strong>{deuda.pacienteNombre || deuda.paciente || 'Paciente'}</strong><small>{deuda.tratamientoNombre || deuda.concepto || 'Saldo pendiente'}</small></span>
+              </Link>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="row g-3 mb-4">
         {statCards.map((card) => (
           <div key={card.key} className="col-xl-3 col-lg-4 col-md-6 col-sm-6">
-            <div className="stat-card">
-              <div className={`stat-icon ${card.color}`}>
-                <i className={`bi ${card.icon}`}></i>
-              </div>
-              <div className="stat-info">
-                <h3>{getValue(card.key)}</h3>
-                <p>{card.label}</p>
-              </div>
-            </div>
+            <div className="stat-card"><div className={`stat-icon ${card.color}`}><i className={`bi ${card.icon}`}></i></div><div className="stat-info"><h3>{getValue(card.key)}</h3><p>{card.label}</p></div></div>
           </div>
         ))}
       </div>
 
       <div className="row g-3">
-        <div className="col-lg-6">
-          <div className="chart-container">
-            <h5 className="chart-title">
-              <i className="bi bi-bar-chart-fill me-2 text-primary"></i>Ingresos
-            </h5>
-            {ingresosMensuales.length > 0 ? (
-              <Bar data={barData} options={barOptions} />
-            ) : (
-              <p className="text-muted text-center py-4">No hay datos disponibles</p>
-            )}
-          </div>
-        </div>
-        <div className="col-lg-3 col-md-6">
-          <div className="chart-container h-100">
-            <h5 className="chart-title">
-              <i className="bi bi-pie-chart-fill me-2 text-success"></i>Atendidas y canceladas
-            </h5>
-            {(citasAtendidas > 0 || citasCanceladas > 0) ? (
-              <div className="d-flex justify-content-center">
-                <div style={{ maxWidth: 220 }}>
-                  <Doughnut data={doughnutData} options={doughnutOptions} />
-                </div>
-              </div>
-            ) : (
-              <p className="text-muted text-center py-4">No hay datos disponibles</p>
-            )}
-          </div>
-        </div>
-        <div className="col-lg-3 col-md-6">
-          <div className="chart-container h-100">
-            <h5 className="chart-title">
-              <i className="bi bi-graph-up me-2 text-secondary"></i>Pacientes por Mes
-            </h5>
-            {pacientesPorMes.length > 0 ? (
-              <Line data={lineData} options={lineOptions} />
-            ) : (
-              <p className="text-muted text-center py-4">No hay datos disponibles</p>
-            )}
-          </div>
-        </div>
+        <div className="col-lg-6"><div className="chart-container"><h5 className="chart-title"><i className="bi bi-bar-chart-fill me-2 text-primary"></i>Ingresos</h5>{ingresosMensuales.length > 0 ? <Bar data={barData} options={chartOptions} /> : <p className="text-muted text-center py-4">No hay datos disponibles</p>}</div></div>
+        <div className="col-lg-3 col-md-6"><div className="chart-container h-100"><h5 className="chart-title"><i className="bi bi-pie-chart-fill me-2 text-success"></i>Atendidas y canceladas</h5>{(citasAtendidas > 0 || citasCanceladas > 0) ? <div className="d-flex justify-content-center"><div style={{ maxWidth: 220 }}><Doughnut data={doughnutData} options={doughnutOptions} /></div></div> : <p className="text-muted text-center py-4">No hay datos disponibles</p>}</div></div>
+        <div className="col-lg-3 col-md-6"><div className="chart-container h-100"><h5 className="chart-title"><i className="bi bi-graph-up me-2 text-secondary"></i>Pacientes por Mes</h5>{pacientesPorMes.length > 0 ? <Line data={lineData} options={chartOptions} /> : <p className="text-muted text-center py-4">No hay datos disponibles</p>}</div></div>
       </div>
     </div>
   );
