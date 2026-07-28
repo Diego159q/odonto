@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { dashboardService } from '../services/endpoints';
 import { toast } from 'react-toastify';
 import {
@@ -11,12 +12,17 @@ import { Bar, Doughnut, Line } from 'react-chartjs-2';
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement);
 
 const statCards = [
-  { key: 'totalPacientes', label: 'Total Pacientes', icon: 'bi-people-fill', color: 'blue' },
-  { key: 'citasDelDia', label: 'Citas del Día', icon: 'bi-calendar-check-fill', color: 'green' },
-  { key: 'citasPendientes', label: 'Citas Pendientes', icon: 'bi-clock-fill', color: 'orange' },
-  { key: 'citasConfirmadas', label: 'Citas Confirmadas', icon: 'bi-check-circle-fill', color: 'teal' },
-  { key: 'ingresosDelDia', label: 'Ingresos del Día', icon: 'bi-cash-stack', color: 'purple' },
-  { key: 'ingresosDelMes', label: 'Ingresos del Mes', icon: 'bi-graph-up-arrow', color: 'red' },
+  { key: 'citasDelDia', label: 'Citas de hoy', icon: 'bi-calendar-check-fill', color: 'green' },
+  { key: 'citasPendientes', label: 'Pendientes', icon: 'bi-clock-fill', color: 'orange' },
+  { key: 'totalPacientes', label: 'Pacientes', icon: 'bi-people-fill', color: 'blue' },
+  { key: 'ingresosDelDia', label: 'Cobrado hoy', icon: 'bi-cash-stack', color: 'purple' },
+];
+
+const quickActions = [
+  { to: '/calendario-citas', icon: 'bi-calendar-plus', label: 'Agendar cita', hint: 'Ver el dia y crear una nueva atencion' },
+  { to: '/pacientes/nuevo', icon: 'bi-person-plus', label: 'Nuevo paciente', hint: 'Registrar datos basicos del cliente' },
+  { to: '/pacientes', icon: 'bi-search', label: 'Buscar paciente', hint: 'Abrir historial, citas y pagos' },
+  { to: '/pagos', icon: 'bi-cash-coin', label: 'Registrar pago', hint: 'Controlar cobros y saldos' },
 ];
 
 const formatCurrency = (value) => {
@@ -146,13 +152,28 @@ const Dashboard = () => {
 
   return (
     <div className="fade-in">
-      <div className="page-header">
-        <h2 className="page-title">Dashboard</h2>
+      <div className="page-header simple-page-header">
+        <div>
+          <h2 className="page-title">Inicio</h2>
+          <p className="page-subtitle">Lo importante del consultorio, sin vueltas.</p>
+        </div>
+      </div>
+
+      <div className="quick-actions mb-4">
+        {quickActions.map((action) => (
+          <Link key={action.to} to={action.to} className="quick-action">
+            <span className="quick-action-icon"><i className={`bi ${action.icon}`}></i></span>
+            <span>
+              <strong>{action.label}</strong>
+              <small>{action.hint}</small>
+            </span>
+          </Link>
+        ))}
       </div>
 
       <div className="row g-3 mb-4">
         {statCards.map((card) => (
-          <div key={card.key} className="col-xl-2 col-lg-4 col-md-6 col-sm-6">
+          <div key={card.key} className="col-xl-3 col-lg-4 col-md-6 col-sm-6">
             <div className="stat-card">
               <div className={`stat-icon ${card.color}`}>
                 <i className={`bi ${card.icon}`}></i>
@@ -170,7 +191,7 @@ const Dashboard = () => {
         <div className="col-lg-6">
           <div className="chart-container">
             <h5 className="chart-title">
-              <i className="bi bi-bar-chart-fill me-2 text-primary"></i>Ingresos Mensuales
+              <i className="bi bi-bar-chart-fill me-2 text-primary"></i>Ingresos
             </h5>
             {ingresosMensuales.length > 0 ? (
               <Bar data={barData} options={barOptions} />
@@ -182,7 +203,7 @@ const Dashboard = () => {
         <div className="col-lg-3 col-md-6">
           <div className="chart-container h-100">
             <h5 className="chart-title">
-              <i className="bi bi-pie-chart-fill me-2 text-success"></i>Citas Atendidas vs Canceladas
+              <i className="bi bi-pie-chart-fill me-2 text-success"></i>Atendidas y canceladas
             </h5>
             {(citasAtendidas > 0 || citasCanceladas > 0) ? (
               <div className="d-flex justify-content-center">

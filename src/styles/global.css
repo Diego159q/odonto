@@ -1,6 +1,6 @@
 /* ============================================================
    DENTALCARE SYSTEM - Estilos Globales
-   Diseño moderno, profesional y responsive
+   DiseÃ±o moderno, profesional y responsive
    ============================================================ */
 
 :root {
@@ -737,4 +737,112 @@ body {
 @media print {
   .dental-sidebar, .dental-header, .no-print { display: none !important; }
   .dental-content { margin-left: 0 !important; padding: 0 !important; }
+}
+
+/* Simple owner-friendly dashboard */
+.simple-page-header {
+  align-items: flex-start;
+}
+
+.page-subtitle {
+  margin: 4px 0 0;
+  color: var(--gray);
+  font-size: 0.95rem;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.quick-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  min-height: 92px;
+  color: var(--dark);
+  text-decoration: none;
+  background: var(--white);
+  border: 1px solid rgba(120,144,156,0.18);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  transition: var(--transition);
+}
+
+.quick-action:hover {
+  color: var(--dark);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+
+.quick-action-icon {
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13,110,253,0.1);
+  color: var(--primary);
+  font-size: 1.35rem;
+}
+
+.quick-action strong,
+.quick-action small {
+  display: block;
+}
+
+.quick-action strong {
+  font-size: 0.98rem;
+  margin-bottom: 3px;
+}
+
+.quick-action small {
+  color: var(--gray);
+  line-height: 1.25;
+}
+
+.sidebar-more {
+  margin-top: 8px;
+}
+
+.sidebar-more-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  color: rgba(255,255,255,0.7);
+  transition: var(--transition);
+  gap: 12px;
+}
+
+.sidebar-more-toggle:hover {
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
+
+.sidebar-more-list .sidebar-item {
+  padding-left: 32px;
+  font-size: 0.92rem;
+}
+
+.dental-sidebar.collapsed .sidebar-more-list .sidebar-item {
+  padding-left: 20px;
+}
+
+@media (max-width: 1200px) {
+  .quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 576px) {
+  .quick-actions {
+    grid-template-columns: 1fr;
+  }
 }
