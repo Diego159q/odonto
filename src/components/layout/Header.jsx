@@ -2,13 +2,21 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-const Header = () => {
+const Header = ({ onMenuClick }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   return (
     <header className="h-16 bg-[#1E293B]/95 backdrop-blur border-b border-slate-700/50 flex items-center justify-between gap-4 px-6 sticky top-0 z-40">
       <div className="flex items-center gap-4 min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          className="lg:hidden p-2 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white"
+          aria-label="Abrir menu"
+        >
+          <span className="material-symbols-outlined">menu</span>
+        </button>
         <div className="hidden md:block min-w-0">
           <h1 className="font-['Geist'] text-lg font-bold text-white leading-none">DentalCare System</h1>
           <p className="text-[11px] text-slate-500 mt-1">Gestion clinica integral</p>

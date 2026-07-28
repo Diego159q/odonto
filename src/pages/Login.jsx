@@ -7,6 +7,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -30,7 +31,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4 md:p-8 text-slate-300">
+    <div className="min-h-screen bg-[#0F172A] bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.20),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.10),transparent_32%)] flex items-center justify-center p-4 md:p-8 text-slate-300">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
         <div className="absolute top-1/2 -right-48 w-[500px] h-[500px] bg-slate-800/20 rounded-full blur-3xl" />
@@ -44,7 +45,8 @@ const Login = () => {
           </div>
 
           <div className="text-center space-y-4 mt-8">
-            <div className="mx-auto w-28 h-28 rounded-[2rem] bg-blue-600/10 border border-blue-500/20 flex items-center justify-center shadow-2xl shadow-blue-950/30">
+            <div className="relative mx-auto w-32 h-32 rounded-[2.25rem] bg-blue-600/10 border border-blue-500/20 flex items-center justify-center shadow-2xl shadow-blue-950/30">
+              <div className="absolute inset-0 rounded-[2.25rem] bg-blue-500/10 blur-xl" />
               <span className="material-symbols-outlined text-blue-400 text-7xl">dentistry</span>
             </div>
             <h1 className="font-['Geist'] text-3xl font-bold text-white">Cuidamos tu sonrisa</h1>
@@ -64,6 +66,11 @@ const Login = () => {
                 <span className="material-symbols-outlined text-blue-400">analytics</span>
                 <span>Indicadores y reportes en tiempo real</span>
               </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 pt-4">
+              <MiniStat value="24/7" label="Control" />
+              <MiniStat value="IA" label="Asistida" />
+              <MiniStat value="JWT" label="Seguro" />
             </div>
           </div>
         </section>
@@ -91,14 +98,19 @@ const Login = () => {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Contrasena</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Ingresa tu contrasena"
-                  disabled={loading}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 transition-colors"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Ingresa tu contrasena"
+                    disabled={loading}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 pr-12 text-sm text-white placeholder-slate-500 focus:border-blue-500 transition-colors"
+                  />
+                  <button type="button" onClick={() => setShowPassword((current) => !current)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+                    <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                  </button>
+                </div>
               </div>
 
               <div className="flex justify-end">
@@ -117,6 +129,14 @@ const Login = () => {
               </button>
             </form>
 
+            <button
+              type="button"
+              onClick={() => { setEmail('admin@dentalcare.com'); setPassword('admin123'); }}
+              className="w-full rounded-2xl border border-blue-500/20 bg-blue-500/10 p-3 text-left text-xs text-blue-200 hover:bg-blue-500/15"
+            >
+              <span className="font-bold text-blue-300">Credenciales locales:</span> admin@dentalcare.com / admin123
+            </button>
+
             <p className="text-center text-xs text-slate-500">
               &copy; {new Date().getFullYear()} DentalCare. Todos los derechos reservados.
             </p>
@@ -126,5 +146,12 @@ const Login = () => {
     </div>
   );
 };
+
+const MiniStat = ({ value, label }) => (
+  <div className="rounded-2xl border border-slate-700/60 bg-slate-800/60 p-3">
+    <p className="m-0 font-['Geist'] text-lg font-black text-white">{value}</p>
+    <p className="m-0 text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p>
+  </div>
+);
 
 export default Login;

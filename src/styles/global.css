@@ -16,6 +16,8 @@ body {
   color: #CBD5E1;
 }
 
+#root { min-height: 100vh; }
+
 a { color: #60A5FA; }
 a:hover { color: #93C5FD; }
 
@@ -113,6 +115,73 @@ a:hover { color: #93C5FD; }
   border-color: rgba(148, 163, 184, 0.26) !important;
   color: #F8FAFC !important;
   border-radius: 0.75rem !important;
+}
+
+.form-container {
+  max-width: 1180px !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.form-title {
+  margin: 0 !important;
+  padding: 1.25rem 1.5rem;
+  color: #F8FAFC !important;
+  font-family: 'Geist', sans-serif;
+  font-weight: 800;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.14), rgba(15, 23, 42, 0.0));
+}
+
+.form-section {
+  margin: 0 !important;
+  padding: 1.5rem !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12) !important;
+}
+
+.form-section:last-child { border-bottom: 0 !important; }
+
+.form-section-title {
+  color: #60A5FA !important;
+  font-family: 'Geist', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem !important;
+}
+
+.invalid-feedback { color: #FB7185 !important; }
+.is-invalid { border-color: #FB7185 !important; }
+
+.nav-tabs-dental {
+  border: 0 !important;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.nav-tabs-dental .nav-link {
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
+  border-radius: 0.85rem !important;
+  background: rgba(30, 41, 59, 0.74) !important;
+  color: #94A3B8 !important;
+  font-weight: 800;
+}
+
+.nav-tabs-dental .nav-link.active {
+  background: #2563EB !important;
+  color: #fff !important;
+  border-color: #3B82F6 !important;
+}
+
+.breadcrumb,
+.breadcrumb-custom { --bs-breadcrumb-divider-color: #64748B; }
+
+.alert {
+  background: rgba(30, 41, 59, 0.82) !important;
+  color: #CBD5E1 !important;
+  border-color: rgba(148, 163, 184, 0.20) !important;
+  border-radius: 1rem !important;
 }
 
 .form-control::placeholder {
@@ -280,4 +349,8 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 2px rgba(59, 130, 
   .simple-page-header {
     flex-direction: column;
   }
+
+  .p-8 { padding: 1rem !important; }
+
+  .form-section { padding: 1rem !important; }
 }

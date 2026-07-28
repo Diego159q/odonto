@@ -1,27 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { pacienteService, citaService, tratamientoService, pagoService } from '../services/endpoints';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { citaService, pacienteService, pagoService, tratamientoService } from '../services/endpoints';
 import { toast } from 'react-toastify';
 import jsPDF from 'jspdf';
 
 const TABS = [
-  { key: 'expediente', label: 'Expediente', icon: 'bi-folder2-open' },
-  { key: 'info', label: 'Datos', icon: 'bi-person-badge' },
-  { key: 'citas', label: 'Historial de Citas', icon: 'bi-calendar-check' },
-  { key: 'clinicas', label: 'Historias Clinicas', icon: 'bi-file-medical' },
-  { key: 'odontograma', label: 'Odontograma', icon: 'bi-grid-3x3-gap-fill' },
-  { key: 'tratamientos', label: 'Tratamientos', icon: 'bi-heart-pulse' },
-  { key: 'pagos', label: 'Pagos', icon: 'bi-cash-coin' },
+  { key: 'expediente', label: 'Expediente', icon: 'folder_open' },
+  { key: 'info', label: 'Datos', icon: 'badge' },
+  { key: 'citas', label: 'Citas', icon: 'event_available' },
+  { key: 'tratamientos', label: 'Tratamientos', icon: 'medical_services' },
+  { key: 'pagos', label: 'Pagos', icon: 'payments' },
 ];
+
+const normalize = (data) => data?.content || (Array.isArray(data) ? data : []);
+
+const formatCurrency = (value) => {
+  if (value == null) return 'S/ 0.00';
+  return `S/ ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-';
+  return new Date(`${dateStr}${dateStr.includes?.('T') ? '' : 'T00:00:00'}`).toLocaleDateString('es-PE', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+  });
+};
+
+const getFullName = (paciente) => `${paciente?.nombres || ''} ${paciente?.apellidos || ''}`.trim() || 'Paciente';
+const getInitials = (paciente) => getFullName(paciente).split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
 
 const PacientePerfil = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-
   const [paciente, setPaciente] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('expediente');
-
   const [citas, setCitas] = useState([]);
   const [tratamientos, setTratamientos] = useState([]);
   const [pagos, setPagos] = useState([]);
@@ -34,8 +49,7 @@ const PacientePerfil = () => {
         const response = await pacienteService.buscarPorId(id);
         setPaciente(response.data);
       } catch (error) {
-        const msg = error.response?.data?.message || 'Error al cargar perfil del paciente';
-        toast.error(msg);
+        toast.error(error.response?.data?.message || 'Error al cargar perfil del paciente');
         navigate('/pacientes');
       } finally {
         setLoading(false);
@@ -45,32 +59,25 @@ const PacientePerfil = () => {
   }, [id, navigate]);
 
   useEffect(() => {
-    if (!paciente || activeTab === 'info' || activeTab === 'clinicas' || activeTab === 'odontograma') return;
+    if (!paciente) return;
     const loadTabData = async () => {
       setSubLoading(true);
       try {
-        if (activeTab === 'expediente') {
-          const [citasRes, tratamientosRes, pagosRes] = await Promise.all([
-            citaService.listar({ pacienteId: id, page: 0, size: 10 }),
-            tratamientoService.listar({ pacienteId: id, page: 0, size: 10 }),
-            pagoService.listar({ pacienteId: id, page: 0, size: 10 }),
-          ]);
-          setCitas(citasRes.data.content || citasRes.data || []);
-          setTratamientos(tratamientosRes.data.content || tratamientosRes.data || []);
-          setPagos(pagosRes.data.content || pagosRes.data || []);
-        } else if (activeTab === 'citas') {
-          const res = await citaService.listar({ pacienteId: id, page: 0, size: 10 });
-          setCitas(res.data.content || res.data || []);
-        } else if (activeTab === 'tratamientos') {
-          const res = await tratamientoService.listar({ pacienteId: id, page: 0, size: 10 });
-          setTratamientos(res.data.content || res.data || []);
-        } else if (activeTab === 'pagos') {
-          const res = await pagoService.listar({ pacienteId: id, page: 0, size: 10 });
-          setPagos(res.data.content || res.data || []);
-        }
+        const shouldLoadAll = activeTab === 'expediente';
+        const requests = [];
+        if (shouldLoadAll || activeTab === 'citas') requests.push(citaService.listar({ pacienteId: id, page: 0, size: 10 }));
+        else requests.push(Promise.resolve(null));
+        if (shouldLoadAll || activeTab === 'tratamientos') requests.push(tratamientoService.listar({ pacienteId: id, page: 0, size: 10 }));
+        else requests.push(Promise.resolve(null));
+        if (shouldLoadAll || activeTab === 'pagos') requests.push(pagoService.listar({ pacienteId: id, page: 0, size: 10 }));
+        else requests.push(Promise.resolve(null));
+
+        const [citasRes, tratamientosRes, pagosRes] = await Promise.all(requests);
+        if (citasRes) setCitas(normalize(citasRes.data));
+        if (tratamientosRes) setTratamientos(normalize(tratamientosRes.data));
+        if (pagosRes) setPagos(normalize(pagosRes.data));
       } catch (error) {
-        const msg = error.response?.data?.message || 'Error al cargar datos';
-        toast.error(msg);
+        toast.error(error.response?.data?.message || 'Error al cargar datos del paciente');
       } finally {
         setSubLoading(false);
       }
@@ -78,92 +85,22 @@ const PacientePerfil = () => {
     loadTabData();
   }, [activeTab, paciente, id]);
 
-  const calculateAge = () => {
+  const age = useMemo(() => {
     if (!paciente?.fechaNacimiento) return null;
     const birth = new Date(paciente.fechaNacimiento);
     const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return age;
-  };
+    let years = today.getFullYear() - birth.getFullYear();
+    const month = today.getMonth() - birth.getMonth();
+    if (month < 0 || (month === 0 && today.getDate() < birth.getDate())) years -= 1;
+    return years;
+  }, [paciente]);
 
-  const renderEstadoBadge = (estado) => {
-    const map = {
-      ACTIVO: 'badge-activo',
-      INACTIVO: 'badge-inactivo',
-      CONFIRMADA: 'badge-confirmada',
-      PENDIENTE: 'badge-pendiente',
-      ATENDIDA: 'badge-atendida',
-      CANCELADA: 'badge-cancelada',
-      NO_ASISTIO: 'badge-no_asistio',
-      EN_PROCESO: 'badge-en_proceso',
-      TERMINADO: 'badge-terminado',
-      BORRADOR: 'badge-borrador',
-    };
-    const cls = map[estado] || 'badge-activo';
-    return <span className={`badge badge-status ${cls}`}>{estado}</span>;
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('es-PE', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const formatCurrency = (value) => {
-    if (value == null) return '$0';
-    return '$' + Number(value).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
-
-  const cleanPhone = (phone) => String(phone || '').replace(/\D/g, '');
-
-  const getWhatsappUrl = () => {
-    const phone = cleanPhone(paciente?.telefono);
-    const text = encodeURIComponent(`Hola ${paciente?.nombres || ''}, le escribimos de DentalCare para coordinar su atencion.`);
-    return phone ? `https://wa.me/51${phone}?text=${text}` : `https://wa.me/?text=${text}`;
-  };
-
-  const exportExpedientePdf = () => {
-    const doc = new jsPDF();
-    const fullName = `${paciente.nombres || ''} ${paciente.apellidos || ''}`.trim();
-    let y = 16;
-    doc.setFontSize(16);
-    doc.text('Expediente DentalCare', 14, y);
-    y += 10;
-    doc.setFontSize(12);
-    doc.text(`Paciente: ${fullName || '-'}`, 14, y); y += 7;
-    doc.text(`Telefono: ${paciente.telefono || '-'}`, 14, y); y += 7;
-    doc.text(`DNI: ${paciente.dni || '-'}`, 14, y); y += 10;
-    doc.setFontSize(13);
-    doc.text('Datos importantes', 14, y); y += 8;
-    doc.setFontSize(10);
-    doc.text(`Alergias: ${paciente.alergias || 'Ninguna registrada'}`, 14, y); y += 6;
-    doc.text(`Condiciones: ${paciente.enfermedadesPrevias || 'Ninguna registrada'}`, 14, y); y += 6;
-    doc.text(`Medicamentos: ${paciente.medicamentosActuales || 'Ninguno registrado'}`, 14, y); y += 10;
-    doc.setFontSize(13);
-    doc.text('Movimientos recientes', 14, y); y += 8;
-    doc.setFontSize(10);
-    if (expedienteEventos.length === 0) {
-      doc.text('Sin movimientos registrados.', 14, y);
-    } else {
-      expedienteEventos.forEach((item) => {
-        if (y > 275) { doc.addPage(); y = 16; }
-        doc.text(`${formatDate(item.fecha)} - ${item.tipo}: ${item.titulo} (${item.detalle})`, 14, y);
-        y += 6;
-      });
-    }
-    doc.save(`expediente-${paciente.id}.pdf`);
-  };
-  const expedienteEventos = [
+  const events = useMemo(() => ([
     ...citas.map((cita) => ({
       id: `cita-${cita.id}`,
       fecha: cita.fecha,
-      icon: 'bi-calendar-check',
-      color: 'primary',
+      icon: 'event_available',
+      color: 'blue',
       tipo: 'Cita',
       titulo: cita.motivo || 'Atencion registrada',
       detalle: cita.estado || 'Sin estado',
@@ -171,8 +108,8 @@ const PacientePerfil = () => {
     ...tratamientos.map((tratamiento) => ({
       id: `tratamiento-${tratamiento.id}`,
       fecha: tratamiento.fechaInicio,
-      icon: 'bi-heart-pulse',
-      color: 'success',
+      icon: 'medical_services',
+      color: 'emerald',
       tipo: 'Tratamiento',
       titulo: tratamiento.nombre || tratamiento.descripcion || 'Tratamiento registrado',
       detalle: tratamiento.estado || 'Sin estado',
@@ -180,486 +117,191 @@ const PacientePerfil = () => {
     ...pagos.map((pago) => ({
       id: `pago-${pago.id}`,
       fecha: pago.fecha,
-      icon: 'bi-cash-coin',
-      color: 'warning',
+      icon: 'payments',
+      color: 'amber',
       tipo: 'Pago',
       titulo: pago.concepto || 'Pago registrado',
       detalle: formatCurrency(pago.monto),
     })),
-  ]
-    .filter((item) => item.fecha)
-    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
-    .slice(0, 8);
-  const infoFields = [
-    { label: 'Nombres', value: paciente?.nombres },
-    { label: 'Apellidos', value: paciente?.apellidos },
-    { label: 'DNI', value: paciente?.dni },
-    { label: 'Fecha de Nacimiento', value: formatDate(paciente?.fechaNacimiento) },
-    { label: 'Edad', value: calculateAge() !== null ? `${calculateAge()} años` : '-' },
-    { label: 'Sexo', value: paciente?.sexo || '-' },
-    { label: 'Estado Civil', value: paciente?.estadoCivil || '-' },
-    { label: 'Tipo de Sangre', value: paciente?.tipoSangre || '-' },
-    { label: 'Teléfono', value: paciente?.telefono },
-    { label: 'Email', value: paciente?.email },
-    { label: 'Dirección', value: paciente?.direccion || '-' },
-    { label: 'Distrito', value: paciente?.distrito || '-' },
-    { label: 'Ciudad', value: paciente?.ciudad || '-' },
-    { label: 'Contacto de Emergencia', value: paciente?.contactoEmergencia || '-' },
-    { label: 'Tel. Emergencia', value: paciente?.telefonoEmergencia || '-' },
-    { label: 'Ocupación', value: paciente?.ocupacion || '-' },
-    { label: 'Alergias', value: paciente?.alergias || 'Ninguna' },
-    { label: 'Enfermedades Previas', value: paciente?.enfermedadesPrevias || 'Ninguna' },
-    { label: 'Medicamentos Actuales', value: paciente?.medicamentosActuales || 'Ninguno' },
-    { label: 'Estado', value: renderEstadoBadge(paciente?.estado) },
-  ];
+  ]).filter((item) => item.fecha).sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 8), [citas, tratamientos, pagos]);
+
+  const totalPagos = pagos.reduce((sum, pago) => sum + Number(pago.monto || 0), 0);
+
+  const cleanPhone = (phone) => String(phone || '').replace(/\D/g, '');
+  const whatsappUrl = () => {
+    const phone = cleanPhone(paciente?.telefono);
+    const text = encodeURIComponent(`Hola ${paciente?.nombres || ''}, le escribimos de DentalCare para coordinar su atencion.`);
+    return phone ? `https://wa.me/51${phone}?text=${text}` : `https://wa.me/?text=${text}`;
+  };
+
+  const exportExpedientePdf = () => {
+    const doc = new jsPDF();
+    let y = 16;
+    doc.setFontSize(16);
+    doc.text('Expediente DentalCare', 14, y);
+    y += 10;
+    doc.setFontSize(11);
+    doc.text(`Paciente: ${getFullName(paciente)}`, 14, y); y += 7;
+    doc.text(`DNI: ${paciente.dni || '-'}`, 14, y); y += 7;
+    doc.text(`Telefono: ${paciente.telefono || '-'}`, 14, y); y += 10;
+    doc.text(`Alergias: ${paciente.alergias || 'Ninguna registrada'}`, 14, y); y += 7;
+    doc.text(`Condiciones: ${paciente.enfermedadesPrevias || 'Ninguna registrada'}`, 14, y); y += 10;
+    doc.text('Movimientos recientes', 14, y); y += 8;
+    if (events.length === 0) doc.text('Sin movimientos registrados.', 14, y);
+    events.forEach((item) => {
+      if (y > 275) { doc.addPage(); y = 16; }
+      doc.text(`${formatDate(item.fecha)} - ${item.tipo}: ${item.titulo} (${item.detalle})`, 14, y);
+      y += 6;
+    });
+    doc.save(`expediente-${paciente.id}.pdf`);
+  };
 
   if (loading) {
     return (
-      <div className="fade-in">
-        <div className="loading-container">
-          <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }} role="status">
-            <span className="visually-hidden">Cargando...</span>
-          </div>
+      <div className="min-h-[70vh] flex items-center justify-center">
+        <div className="text-center text-slate-400">
+          <span className="material-symbols-outlined text-5xl text-blue-400 animate-spin">progress_activity</span>
+          <p className="mt-3 text-sm">Cargando expediente...</p>
         </div>
       </div>
     );
   }
 
-  if (!paciente) {
-    return (
-      <div className="fade-in">
-        <div className="loading-container">
-          <div className="text-center">
-            <i className="bi bi-exclamation-triangle-fill text-danger" style={{ fontSize: '3rem' }}></i>
-            <p className="mt-3 text-muted">Paciente no encontrado</p>
-            <button className="btn btn-dental-primary mt-2" onClick={() => navigate('/pacientes')}>
-              Volver a Pacientes
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!paciente) return null;
 
   return (
-    <div className="fade-in">
-      <div className="page-header">
-        <div>
-          <h2 className="page-title mb-1">
-            <i className="bi bi-person-fill me-2 text-primary"></i>
-            {paciente.nombres} {paciente.apellidos}
-          </h2>
-          <div className="d-flex align-items-center gap-2">
-            <span className="text-muted">Código: #{paciente.id}</span>
-            {renderEstadoBadge(paciente.estado)}
+    <div className="p-8 space-y-6 animate-in text-slate-300">
+      <section className="relative overflow-hidden rounded-3xl border border-slate-700/60 bg-[#1E293B] p-6 shadow-2xl shadow-black/20">
+        <div className="absolute right-[-70px] top-[-90px] h-64 w-64 rounded-full bg-blue-600/20 blur-3xl" />
+        <div className="absolute left-[35%] bottom-[-120px] h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="relative flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+          <div className="flex flex-col sm:flex-row gap-5">
+            <div className="h-24 w-24 rounded-[2rem] border border-blue-500/30 bg-blue-500/15 flex items-center justify-center text-3xl font-['Geist'] font-black text-blue-300 shadow-xl shadow-blue-950/30">
+              {getInitials(paciente)}
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-400">Expediente clinico</p>
+              <h1 className="mt-2 font-['Geist'] text-3xl lg:text-5xl font-black tracking-tight text-white">{getFullName(paciente)}</h1>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <Badge icon="tag" label={`Codigo #${paciente.id}`} />
+                <Badge icon="badge" label={paciente.dni ? `DNI ${paciente.dni}` : 'Sin DNI'} />
+                <Badge icon="cake" label={age !== null ? `${age} anos` : 'Edad no registrada'} />
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-bold ${(paciente.estado || 'ACTIVO') === 'ACTIVO' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-rose-500/30 bg-rose-500/10 text-rose-400'}`}>
+                  <span className="material-symbols-outlined text-sm">verified</span>{paciente.estado || 'ACTIVO'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => navigate(`/citas/nueva?pacienteId=${paciente.id}`)} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-500 flex items-center gap-2"><span className="material-symbols-outlined text-lg">calendar_add_on</span>Nueva cita</button>
+            <button onClick={() => navigate(`/odontograma/paciente/${paciente.id}`)} className="rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-2.5 text-sm font-bold text-teal-300 hover:bg-teal-500/20 flex items-center gap-2"><span className="material-symbols-outlined text-lg">dentistry</span>Odontograma</button>
+            <button onClick={() => navigate(`/pacientes/${paciente.id}/editar`)} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-bold text-slate-200 hover:bg-slate-700 flex items-center gap-2"><span className="material-symbols-outlined text-lg">edit</span>Editar</button>
           </div>
         </div>
-        <div className="d-flex gap-2 flex-wrap">
-          <button
-            className="btn btn-dental-success d-inline-flex align-items-center gap-2"
-            onClick={() => navigate(`/citas/nueva?pacienteId=${paciente.id}`)}
-          >
-            <i className="bi bi-calendar-plus"></i> Nueva Cita
-          </button>
-          <button
-            className="btn btn-dental-primary d-inline-flex align-items-center gap-2"
-            onClick={() => navigate(`/pacientes/${paciente.id}/editar`)}
-          >
-            <i className="bi bi-pencil"></i> Editar
-          </button>
-        </div>
+      </section>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <MetricCard icon="phone" label="Telefono" value={paciente.telefono || '-'} color="blue" />
+        <MetricCard icon="bloodtype" label="Tipo sangre" value={paciente.tipoSangre || '-'} color="rose" />
+        <MetricCard icon="medical_information" label="Tratamientos" value={tratamientos.length} color="emerald" />
+        <MetricCard icon="payments" label="Pagado visible" value={formatCurrency(totalPagos)} color="amber" />
       </div>
 
-      <ul className="nav nav-tabs nav-tabs-dental">
-        {TABS.map((tab) => (
-          <li key={tab.key} className="nav-item">
-            <button
-              className={`nav-link ${activeTab === tab.key ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              <i className={`bi ${tab.icon} me-1`}></i> {tab.label}
-            </button>
-          </li>
-        ))}
-      </ul>
+      <div className="grid grid-cols-12 gap-6">
+        <main className="col-span-12 xl:col-span-8 space-y-6">
+          <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
+            {TABS.map((tab) => (
+              <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`shrink-0 flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold transition-all ${activeTab === tab.key ? 'border-blue-500 bg-blue-600 text-white' : 'border-slate-700 bg-slate-800/70 text-slate-400 hover:text-white hover:bg-slate-700'}`}>
+                <span className="material-symbols-outlined text-base">{tab.icon}</span>{tab.label}
+              </button>
+            ))}
+          </div>
 
-      {activeTab === 'expediente' && (
-        <div className="expediente-grid">
-          <div className="expediente-main">
-            <div className="card expediente-summary-card">
-              <div className="card-body p-4">
-                <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-                  <div>
-                    <span className="expediente-kicker">Expediente del paciente</span>
-                    <h3 className="expediente-name">{paciente.nombres} {paciente.apellidos}</h3>
-                    <p className="text-muted mb-0">
-                      {paciente.telefono || 'Sin telefono'} {paciente.dni ? `- DNI ${paciente.dni}` : ''}
-                    </p>
-                  </div>
-                  <div className="d-flex gap-2 flex-wrap">
-                    <Link to={`/historias-clinicas/nueva/${paciente.id}`} className="btn btn-dental-primary d-inline-flex align-items-center gap-2">
-                      <i className="bi bi-file-medical"></i> Nueva nota clinica
-                    </Link>
-                    <a href={getWhatsappUrl()} target="_blank" rel="noreferrer" className="btn btn-outline-success d-inline-flex align-items-center gap-2">
-                      <i className="bi bi-whatsapp"></i> WhatsApp
-                    </a>
-                    <button type="button" onClick={exportExpedientePdf} className="btn btn-outline-primary d-inline-flex align-items-center gap-2">
-                      <i className="bi bi-filetype-pdf"></i> PDF
-                    </button>
-                    <Link to={`/pacientes/${paciente.id}/editar`} className="btn btn-outline-primary d-inline-flex align-items-center gap-2">
-                      <i className="bi bi-pencil"></i> Actualizar datos
-                    </Link>
-                  </div>
-                </div>
-
-                <div className="expediente-alerts mt-4">
-                  <div className="expediente-alert">
-                    <small>Alergias</small>
-                    <strong>{paciente.alergias || 'Ninguna registrada'}</strong>
-                  </div>
-                  <div className="expediente-alert">
-                    <small>Condiciones</small>
-                    <strong>{paciente.enfermedadesPrevias || 'Ninguna registrada'}</strong>
-                  </div>
-                  <div className="expediente-alert">
-                    <small>Medicamentos</small>
-                    <strong>{paciente.medicamentosActuales || 'Ninguno registrado'}</strong>
-                  </div>
-                </div>
+          {subLoading ? (
+            <Panel><div className="py-16 text-center text-slate-500"><span className="material-symbols-outlined text-4xl text-blue-400 animate-spin">progress_activity</span><p className="mt-2">Cargando...</p></div></Panel>
+          ) : activeTab === 'expediente' ? (
+            <Panel title="Linea de tiempo clinica" icon="timeline">
+              {events.length === 0 ? <EmptyState text="Sin movimientos recientes." /> : <div className="space-y-3">{events.map((item) => <TimelineItem key={item.id} item={item} />)}</div>}
+            </Panel>
+          ) : activeTab === 'info' ? (
+            <Panel title="Datos personales y medicos" icon="badge">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Info label="Nombres" value={paciente.nombres || '-'} />
+                <Info label="Apellidos" value={paciente.apellidos || '-'} />
+                <Info label="DNI" value={paciente.dni || '-'} />
+                <Info label="Nacimiento" value={formatDate(paciente.fechaNacimiento)} />
+                <Info label="Sexo" value={paciente.sexo || '-'} />
+                <Info label="Estado civil" value={paciente.estadoCivil || '-'} />
+                <Info label="Email" value={paciente.email || '-'} />
+                <Info label="Direccion" value={paciente.direccion || '-'} />
+                <Info label="Alergias" value={paciente.alergias || 'Ninguna'} />
+                <Info label="Medicamentos" value={paciente.medicamentosActuales || 'Ninguno'} />
               </div>
+            </Panel>
+          ) : activeTab === 'citas' ? (
+            <ListPanel title="Historial de citas" icon="event_available" empty="Sin citas registradas" items={citas} render={(cita) => <TimelineItem item={{ fecha: cita.fecha, tipo: cita.estado || 'Cita', titulo: cita.motivo || 'Cita programada', detalle: `${cita.horaInicio || '--:--'} - ${cita.horaFin || '--:--'}`, icon: 'event', color: 'blue' }} />} />
+          ) : activeTab === 'tratamientos' ? (
+            <ListPanel title="Tratamientos" icon="medical_services" empty="Sin tratamientos registrados" items={tratamientos} render={(tratamiento) => <TimelineItem item={{ fecha: tratamiento.fechaInicio, tipo: tratamiento.estado || 'Tratamiento', titulo: tratamiento.nombre || tratamiento.descripcion || 'Tratamiento', detalle: tratamiento.descripcion || '-', icon: 'medical_services', color: 'emerald' }} />} />
+          ) : (
+            <ListPanel title="Pagos" icon="payments" empty="Sin pagos registrados" items={pagos} render={(pago) => <TimelineItem item={{ fecha: pago.fecha, tipo: pago.concepto || 'Pago', titulo: formatCurrency(pago.monto), detalle: pago.metodoPago || pago.estado || '-', icon: 'payments', color: 'amber' }} />} />
+          )}
+        </main>
+
+        <aside className="col-span-12 xl:col-span-4 space-y-6">
+          <Panel title="Alertas clinicas" icon="notification_important">
+            <div className="space-y-3">
+              <Alert label="Alergias" value={paciente.alergias || 'Ninguna registrada'} tone={paciente.alergias ? 'rose' : 'emerald'} />
+              <Alert label="Condiciones" value={paciente.enfermedadesPrevias || 'Ninguna registrada'} tone={paciente.enfermedadesPrevias ? 'amber' : 'emerald'} />
+              <Alert label="Medicamentos" value={paciente.medicamentosActuales || 'Ninguno registrado'} tone={paciente.medicamentosActuales ? 'blue' : 'emerald'} />
             </div>
+          </Panel>
 
-            <div className="card mt-3">
-              <div className="card-header d-flex justify-content-between align-items-center">
-                <span><i className="bi bi-clock-history me-2 text-primary"></i>Linea de tiempo reciente</span>
-                {subLoading && <span className="spinner-border spinner-border-sm text-primary" role="status"></span>}
-              </div>
-              <div className="card-body p-0">
-                {expedienteEventos.length === 0 ? (
-                  <div className="text-center py-5">
-                    <i className="bi bi-journal-medical" style={{ fontSize: '3rem', color: '#ccc' }}></i>
-                    <p className="mt-3 text-muted mb-3">Todavia no hay movimientos en este expediente</p>
-                    <Link to={`/historias-clinicas/nueva/${paciente.id}`} className="btn btn-dental-primary">
-                      Registrar primera nota
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="expediente-timeline">
-                    {expedienteEventos.map((item) => (
-                      <div key={item.id} className="expediente-event">
-                        <div className={`expediente-event-icon text-${item.color}`}>
-                          <i className={`bi ${item.icon}`}></i>
-                        </div>
-                        <div>
-                          <div className="d-flex align-items-center gap-2 flex-wrap">
-                            <strong>{item.titulo}</strong>
-                            <span className="badge bg-light text-dark">{item.tipo}</span>
-                          </div>
-                          <small className="text-muted">{formatDate(item.fecha)} - {item.detalle}</small>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+          <Panel title="Acciones rapidas" icon="bolt">
+            <div className="grid gap-2">
+              <QuickAction to={`/historias-clinicas/nueva/${paciente.id}`} icon="note_add" label="Nueva nota clinica" />
+              <QuickAction to={`/odontograma/paciente/${paciente.id}`} icon="dentistry" label="Abrir odontograma" />
+              <QuickAction to={`/citas/nueva?pacienteId=${paciente.id}`} icon="calendar_add_on" label="Programar cita" />
+              <a href={whatsappUrl()} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20 no-underline"><span className="material-symbols-outlined">chat</span>WhatsApp</a>
+              <button onClick={exportExpedientePdf} className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 p-3 text-sm font-bold text-slate-200 hover:bg-slate-700"><span className="material-symbols-outlined">picture_as_pdf</span>Exportar PDF</button>
             </div>
-          </div>
-
-          <div className="expediente-side">
-            <div className="card">
-              <div className="card-header">
-                <i className="bi bi-lightning-charge-fill me-2 text-primary"></i>Acciones rapidas
-              </div>
-              <div className="list-group list-group-flush expediente-actions">
-                <Link to={`/citas/nueva?pacienteId=${paciente.id}`} className="list-group-item list-group-item-action">
-                  <i className="bi bi-calendar-plus"></i> Agendar cita
-                </Link>
-                <Link to={`/tratamientos/nuevo?pacienteId=${paciente.id}`} className="list-group-item list-group-item-action">
-                  <i className="bi bi-heart-pulse"></i> Nuevo tratamiento
-                </Link>
-                <Link to={`/historias-clinicas/paciente/${paciente.id}`} className="list-group-item list-group-item-action">
-                  <i className="bi bi-file-medical"></i> Ver historias clinicas
-                </Link>
-                <Link to={`/odontograma/paciente/${paciente.id}`} className="list-group-item list-group-item-action">
-                  <i className="bi bi-grid-3x3-gap-fill"></i> Odontograma
-                </Link>
-              </div>
-            </div>
-
-            <div className="card mt-3">
-              <div className="card-header">
-                <i className="bi bi-sticky-fill me-2 text-primary"></i>Notas importantes
-              </div>
-              <div className="card-body">
-                <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>
-                  {paciente.observaciones || 'Sin notas importantes. Puedes agregarlas editando el paciente.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="card mt-3">
-              <div className="card-header">
-                <i className="bi bi-paperclip me-2 text-primary"></i>Documentos y fotos
-              </div>
-              <div className="card-body">
-                <div className="expediente-upload-placeholder">
-                  <i className="bi bi-cloud-arrow-up"></i>
-                  <strong>Fotos, radiografias o expedientes antiguos</strong>
-                  <small>Listo para conectar almacenamiento. Por ahora puedes guardar el resumen en notas clinicas.</small>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {activeTab === 'info' && (
-        <div className="row g-3">
-          <div className="col-lg-8">
-            <div className="card">
-              <div className="card-header">
-                <i className="bi bi-info-circle-fill me-2 text-primary"></i>Datos Generales
-              </div>
-              <div className="card-body p-4">
-                <div className="row g-3">
-                  {infoFields.map((field, idx) => (
-                    <div key={idx} className="col-md-6">
-                      <div className="mb-0">
-                        <small className="text-muted d-block" style={{ fontSize: '0.8rem' }}>{field.label}</small>
-                        <span className="fw-medium">{field.value || '-'}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-lg-4">
-            <div className="card">
-              <div className="card-header">
-                <i className="bi bi-chat-dots-fill me-2 text-primary"></i>Observaciones
-              </div>
-              <div className="card-body p-4">
-                <p className="mb-0" style={{ whiteSpace: 'pre-wrap' }}>
-                  {paciente.observaciones || 'Sin observaciones registradas'}
-                </p>
-              </div>
-            </div>
-            <div className="card mt-3">
-              <div className="card-header">
-                <i className="bi bi-activity me-2 text-primary"></i>Información Médica
-              </div>
-              <div className="card-body p-4">
-                <div className="mb-3">
-                  <small className="text-muted d-block" style={{ fontSize: '0.8rem' }}>Alergias</small>
-                  <span>{paciente.alergias || 'Ninguna'}</span>
-                </div>
-                <div className="mb-3">
-                  <small className="text-muted d-block" style={{ fontSize: '0.8rem' }}>Enfermedades Previas</small>
-                  <span>{paciente.enfermedadesPrevias || 'Ninguna'}</span>
-                </div>
-                <div className="mb-0">
-                  <small className="text-muted d-block" style={{ fontSize: '0.8rem' }}>Medicamentos Actuales</small>
-                  <span>{paciente.medicamentosActuales || 'Ninguno'}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'citas' && (
-        <div className="card">
-          <div className="card-header d-flex justify-content-between align-items-center">
-            <span><i className="bi bi-calendar-check me-2 text-primary"></i>Historial de Citas</span>
-            <Link to={`/citas/nueva?pacienteId=${paciente.id}`} className="btn btn-sm btn-dental-primary">
-              <i className="bi bi-plus-lg"></i> Nueva Cita
-            </Link>
-          </div>
-          <div className="card-body p-0">
-            {subLoading ? (
-              <div className="loading-container" style={{ minHeight: 200 }}>
-                <div className="spinner-border text-primary" role="status">
-                  <span className="visually-hidden">Cargando...</span>
-                </div>
-              </div>
-            ) : citas.length === 0 ? (
-              <p className="text-center text-muted py-4 mb-0">No hay citas registradas</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-modern mb-0">
-                  <thead>
-                    <tr>
-                      <th>Fecha</th>
-                      <th>Hora</th>
-                      <th>Motivo</th>
-                      <th>Odontóloga</th>
-                      <th>Estado</th>
-                      <th className="text-center">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {citas.map((cita) => (
-                      <tr key={cita.id}>
-                        <td>{formatDate(cita.fecha)}</td>
-                        <td>{cita.hora || '-'}</td>
-                        <td>{cita.motivo || '-'}</td>
-                        <td>{cita.odontologaNombre || cita.odontologa || '-'}</td>
-                        <td>{renderEstadoBadge(cita.estado)}</td>
-                        <td className="text-center">
-                          <button
-                            className="btn btn-sm btn-outline-primary"
-                            onClick={() => navigate(`/citas/${cita.id}`)}
-                            title="Ver cita"
-                          >
-                            <i className="bi bi-eye"></i>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'clinicas' && (
-        <div className="card">
-          <div className="card-header">
-            <i className="bi bi-file-medical me-2 text-primary"></i>Historias Clínicas
-          </div>
-          <div className="card-body text-center py-5">
-            <i className="bi bi-file-earmark-medical" style={{ fontSize: '3rem', color: '#ccc' }}></i>
-            <p className="mt-3 text-muted">Accede al módulo de historias clínicas para este paciente</p>
-            <Link
-              to={`/historias-clinicas/paciente/${paciente.id}`}
-              className="btn btn-dental-primary d-inline-flex align-items-center gap-2"
-            >
-              <i className="bi bi-arrow-right-circle"></i> Ir a Historias Clínicas
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'odontograma' && (
-        <div className="card">
-          <div className="card-header">
-            <i className="bi bi-grid-3x3-gap-fill me-2 text-primary"></i>Odontograma
-          </div>
-          <div className="card-body text-center py-5">
-            <i className="bi bi-grid-3x3-gap-fill" style={{ fontSize: '3rem', color: '#ccc' }}></i>
-            <p className="mt-3 text-muted">Accede al odontograma dental de este paciente</p>
-            <Link
-              to={`/odontograma/paciente/${paciente.id}`}
-              className="btn btn-dental-primary d-inline-flex align-items-center gap-2"
-            >
-              <i className="bi bi-arrow-right-circle"></i> Ir a Odontograma
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'tratamientos' && (
-        <div className="card">
-          <div className="card-header d-flex justify-content-between align-items-center">
-            <span><i className="bi bi-heart-pulse me-2 text-primary"></i>Tratamientos</span>
-            <Link to={`/tratamientos/nuevo?pacienteId=${paciente.id}`} className="btn btn-sm btn-dental-success">
-              <i className="bi bi-plus-lg"></i> Nuevo Tratamiento
-            </Link>
-          </div>
-          <div className="card-body p-0">
-            {subLoading ? (
-              <div className="loading-container" style={{ minHeight: 200 }}>
-                <div className="spinner-border text-primary" role="status">
-                  <span className="visually-hidden">Cargando...</span>
-                </div>
-              </div>
-            ) : tratamientos.length === 0 ? (
-              <p className="text-center text-muted py-4 mb-0">No hay tratamientos registrados</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-modern mb-0">
-                  <thead>
-                    <tr>
-                      <th>Tratamiento</th>
-                      <th>Diagnóstico</th>
-                      <th>Fecha Inicio</th>
-                      <th>Estado</th>
-                      <th className="text-center">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tratamientos.map((trat) => (
-                      <tr key={trat.id}>
-                        <td>{trat.nombre || trat.descripcion || '-'}</td>
-                        <td>{trat.diagnostico || '-'}</td>
-                        <td>{formatDate(trat.fechaInicio)}</td>
-                        <td>{renderEstadoBadge(trat.estado)}</td>
-                        <td className="text-center">
-                          <button
-                            className="btn btn-sm btn-outline-primary"
-                            onClick={() => navigate(`/tratamientos/${trat.id}`)}
-                            title="Ver tratamiento"
-                          >
-                            <i className="bi bi-eye"></i>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'pagos' && (
-        <div className="card">
-          <div className="card-header">
-            <i className="bi bi-cash-coin me-2 text-primary"></i>Historial de Pagos
-          </div>
-          <div className="card-body p-0">
-            {subLoading ? (
-              <div className="loading-container" style={{ minHeight: 200 }}>
-                <div className="spinner-border text-primary" role="status">
-                  <span className="visually-hidden">Cargando...</span>
-                </div>
-              </div>
-            ) : pagos.length === 0 ? (
-              <p className="text-center text-muted py-4 mb-0">No hay pagos registrados</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table table-modern mb-0">
-                  <thead>
-                    <tr>
-                      <th>Fecha</th>
-                      <th>Concepto</th>
-                      <th>Monto</th>
-                      <th>Método</th>
-                      <th>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagos.map((pago) => (
-                      <tr key={pago.id}>
-                        <td>{formatDate(pago.fecha)}</td>
-                        <td>{pago.concepto || '-'}</td>
-                        <td className="fw-semibold">{formatCurrency(pago.monto)}</td>
-                        <td>{pago.metodoPago || '-'}</td>
-                        <td>{renderEstadoBadge(pago.estado)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+          </Panel>
+        </aside>
+      </div>
     </div>
   );
 };
+
+const Badge = ({ icon, label }) => <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-600 bg-slate-900/60 px-3 py-1 font-bold text-slate-300"><span className="material-symbols-outlined text-sm">{icon}</span>{label}</span>;
+
+const MetricCard = ({ icon, label, value, color }) => {
+  const colors = {
+    blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    rose: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+    emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    amber: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  };
+  return <div className="rounded-2xl border border-slate-700/50 bg-[#1E293B] p-5 flex items-center gap-4 shadow-xl shadow-black/10"><div className={`h-12 w-12 rounded-2xl border flex items-center justify-center ${colors[color]}`}><span className="material-symbols-outlined">{icon}</span></div><div className="min-w-0"><p className="m-0 text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p><p className="m-0 truncate font-['Geist'] text-xl font-bold text-white">{value}</p></div></div>;
+};
+
+const Panel = ({ title, icon, children }) => <section className="rounded-2xl border border-slate-700/50 bg-[#1E293B] p-5 shadow-xl shadow-black/10">{title && <h2 className="mb-4 flex items-center gap-2 font-['Geist'] text-lg font-bold text-white"><span className="material-symbols-outlined text-blue-400">{icon}</span>{title}</h2>}{children}</section>;
+
+const TimelineItem = ({ item }) => {
+  const colors = { blue: 'text-blue-400 bg-blue-500/10 border-blue-500/20', emerald: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', amber: 'text-amber-400 bg-amber-500/10 border-amber-500/20' };
+  return <div className="grid grid-cols-[48px_1fr] gap-3 rounded-2xl border border-slate-700/50 bg-slate-800/60 p-4"><div className={`h-10 w-10 rounded-xl border flex items-center justify-center ${colors[item.color] || colors.blue}`}><span className="material-symbols-outlined text-lg">{item.icon}</span></div><div><div className="flex flex-wrap items-center justify-between gap-2"><p className="m-0 font-bold text-white">{item.titulo}</p><span className="text-[11px] text-slate-500">{formatDate(item.fecha)}</span></div><p className="m-0 mt-1 text-xs font-bold uppercase tracking-wider text-blue-400">{item.tipo}</p><p className="m-0 mt-1 text-sm text-slate-400">{item.detalle}</p></div></div>;
+};
+
+const Info = ({ label, value }) => <div className="rounded-2xl border border-slate-700/60 bg-slate-800/70 p-4"><p className="m-0 text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p><p className="m-0 mt-1 font-semibold text-white">{value}</p></div>;
+
+const Alert = ({ label, value, tone }) => {
+  const tones = { rose: 'border-rose-500/30 bg-rose-500/10 text-rose-300', amber: 'border-amber-500/30 bg-amber-500/10 text-amber-300', blue: 'border-blue-500/30 bg-blue-500/10 text-blue-300', emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' };
+  return <div className={`rounded-2xl border p-4 ${tones[tone]}`}><p className="m-0 text-[10px] font-bold uppercase tracking-wider opacity-80">{label}</p><p className="m-0 mt-1 text-sm font-semibold">{value}</p></div>;
+};
+
+const QuickAction = ({ to, icon, label }) => <Link to={to} className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 p-3 text-sm font-bold text-slate-200 hover:bg-slate-700 no-underline"><span className="material-symbols-outlined text-blue-400">{icon}</span>{label}</Link>;
+
+const ListPanel = ({ title, icon, items, empty, render }) => <Panel title={title} icon={icon}>{items.length === 0 ? <EmptyState text={empty} /> : <div className="space-y-3">{items.map((item) => <React.Fragment key={item.id}>{render(item)}</React.Fragment>)}</div>}</Panel>;
+
+const EmptyState = ({ text }) => <div className="py-12 text-center text-slate-500"><span className="material-symbols-outlined text-5xl text-slate-600">inbox</span><p className="mt-2 text-sm">{text}</p></div>;
 
 export default PacientePerfil;
