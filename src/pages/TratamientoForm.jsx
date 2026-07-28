@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { tratamientoService, pacienteService, diagnosticoService, usuarioService } from '../services/endpoints';
 import { toast } from 'react-toastify';
 
-const ESTADOS = ['PLANIFICADO', 'EN_PROCESO', 'COMPLETADO', 'CANCELADO', 'PENDIENTE_PAGO'];
+const ESTADOS = ['PLANIFICADO', 'EN_PROCESO', 'TERMINADO', 'CANCELADO', 'PENDIENTE_PAGO'];
 
 const initialForm = {
   pacienteId: '',

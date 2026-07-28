@@ -54,7 +54,7 @@ const PlanesTratamiento = () => {
     try {
       const params = {};
       if (searchPaciente.trim()) params.search = searchPaciente.trim();
-      const response = await planTratamientoService.listarPorPaciente(params.pacienteId || params.search);
+      const response = await planTratamientoService.listar(params);
       const data = response.data;
       setPlanes(Array.isArray(data) ? data : (data.content || []));
     } catch (error) {

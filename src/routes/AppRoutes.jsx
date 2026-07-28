@@ -29,6 +29,7 @@ import Reportes from '../pages/Reportes';
 import Configuracion from '../pages/Configuracion';
 import NotificacionesPage from '../pages/NotificacionesPage';
 import Perfil from '../pages/Perfil';
+import ForgotPassword from '../pages/ForgotPassword';
 import NotFound from '../pages/NotFound';
 
 const PrivateRoute = ({ children, roles }) => {
@@ -44,6 +45,7 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/login" element={isAuthenticated() ? <Navigate to="/dashboard" /> : <Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
 
       <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
         <Route index element={<Navigate to="/dashboard" />} />

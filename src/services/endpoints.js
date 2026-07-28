@@ -77,6 +77,7 @@ export const tratamientoService = {
 
 // Planes de Tratamiento
 export const planTratamientoService = {
+  listar: (params) => api.get('/planes-tratamiento', { params }),
   listarPorPaciente: (pacienteId) => api.get('/planes-tratamiento', { params: { pacienteId } }),
   buscarPorId: (id) => api.get(`/planes-tratamiento/${id}`),
   crear: (data) => api.post('/planes-tratamiento', data),
@@ -99,6 +100,7 @@ export const recetaService = {
   listar: (params) => api.get('/recetas', { params }),
   buscarPorId: (id) => api.get(`/recetas/${id}`),
   crear: (data) => api.post('/recetas', data),
+  actualizar: (id, data) => api.put(`/recetas/${id}`, data),
   aprobar: (id) => api.patch(`/recetas/${id}/aprobar`),
   descargarPDF: (id) => api.get(`/recetas/${id}/pdf`, { responseType: 'blob' }),
 };

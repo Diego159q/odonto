@@ -5,11 +5,11 @@ import { toast } from 'react-toastify';
 
 const PAGE_SIZE = 10;
 
-const ESTADOS = ['', 'PLANIFICADO', 'EN_PROCESO', 'COMPLETADO', 'CANCELADO', 'PENDIENTE_PAGO'];
+const ESTADOS = ['', 'PLANIFICADO', 'EN_PROCESO', 'TERMINADO', 'CANCELADO', 'PENDIENTE_PAGO'];
 const ESTADO_COLORS = {
   PLANIFICADO: { bg: '#E3F2FD', color: '#1565C0' },
   EN_PROCESO: { bg: '#FFF3E0', color: '#E65100' },
-  COMPLETADO: { bg: '#E8F5E9', color: '#2E7D32' },
+  TERMINADO: { bg: '#E8F5E9', color: '#2E7D32' },
   CANCELADO: { bg: '#FFEBEE', color: '#C62828' },
   PENDIENTE_PAGO: { bg: '#FFF8E1', color: '#F57F17' },
 };

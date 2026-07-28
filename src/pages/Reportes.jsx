@@ -56,7 +56,7 @@ const getFilterFields = (tipo) => {
       ];
     case 'TRATAMIENTOS':
       return [
-        { key: 'estado', label: 'Estado', type: 'select', options: ['', 'PENDIENTE', 'EN_PROGRESO', 'COMPLETADO', 'CANCELADO'] },
+        { key: 'estado', label: 'Estado', type: 'select', options: ['', 'PENDIENTE', 'EN_PROCESO', 'TERMINADO', 'CANCELADO'] },
       ];
     default:
       return [];

@@ -205,11 +205,16 @@ const RecetaForm = () => {
         })),
       };
 
-      await recetaService.crear(payload);
-      toast.success('Receta creada exitosamente');
+      if (isEdit) {
+        await recetaService.actualizar(id, payload);
+        toast.success('Receta actualizada exitosamente');
+      } else {
+        await recetaService.crear(payload);
+        toast.success('Receta creada exitosamente');
+      }
       navigate('/recetas');
     } catch (error) {
-      const msg = error.response?.data?.message || 'Error al crear receta';
+      const msg = error.response?.data?.message || 'Error al guardar receta';
       toast.error(msg);
     } finally {
       setSaving(false);
