@@ -1,19 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { pagoService, pacienteService, tratamientoService } from '../services/endpoints';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { pacienteService, pagoService, tratamientoService } from '../services/endpoints';
 import { toast } from 'react-toastify';
 
 const PAGE_SIZE = 10;
-
 const METODOS_PAGO = ['EFECTIVO', 'YAPE', 'PLIN', 'TRANSFERENCIA', 'TARJETA'];
+const initialForm = { pacienteId: '', tratamientoId: '', montoTotal: '', montoPagado: '', metodoPago: 'EFECTIVO', numeroOperacion: '', observaciones: '' };
 
-const initialForm = {
-  pacienteId: '',
-  tratamientoId: '',
-  montoTotal: '',
-  montoPagado: '',
-  metodoPago: 'EFECTIVO',
-  numeroOperacion: '',
-  observaciones: '',
+const formatCurrency = (value) => {
+  if (value === null || value === undefined) return 'S/ 0.00';
+  return `S/ ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-';
+  return new Date(`${dateStr}${dateStr.includes?.('T') ? '' : 'T00:00:00'}`).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const getPatientName = (item) => {
+  if (item.paciente) return `${item.paciente.nombres || ''} ${item.paciente.apellidos || ''}`.trim() || 'Paciente';
+  return item.pacienteNombre || item.paciente || 'Paciente';
 };
 
 const Pagos = () => {
@@ -22,37 +27,19 @@ const Pagos = () => {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
-
-  const [filtros, setFiltros] = useState({
-    paciente: '',
-    fechaDesde: '',
-    fechaHasta: '',
-    metodoPago: '',
-  });
-
+  const [filtros, setFiltros] = useState({ paciente: '', fechaDesde: '', fechaHasta: '', metodoPago: '' });
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
-
   const [searchTerm, setSearchTerm] = useState('');
   const [pacientes, setPacientes] = useState([]);
   const [showPacienteDropdown, setShowPacienteDropdown] = useState(false);
   const [selectedPacienteName, setSelectedPacienteName] = useState('');
-
-  const [showTratamientoDropdown, setShowTratamientoDropdown] = useState(false);
   const [selectedTratamiento, setSelectedTratamiento] = useState(null);
   const [tratamientos, setTratamientos] = useState([]);
-
   const [viewPago, setViewPago] = useState(null);
-
-  const [summary, setSummary] = useState({
-    totalIngresos: 0,
-    ingresosDia: 0,
-    ingresosMes: 0,
-    deudasPendientes: 0,
-  });
-  const [deudas, setDeudas] = useState([]);
+  const [summary, setSummary] = useState({ totalIngresos: 0, ingresosDia: 0, ingresosMes: 0, deudasPendientes: 0 });
 
   const fetchPagos = useCallback(async () => {
     setLoading(true);
@@ -78,124 +65,74 @@ const Pagos = () => {
         setTotalElements(0);
       }
     } catch (error) {
-      const msg = error.response?.data?.message || 'Error al cargar pagos';
-      toast.error(msg);
+      toast.error(error.response?.data?.message || 'Error al cargar pagos');
       setPagos([]);
     } finally {
       setLoading(false);
     }
   }, [page, filtros]);
 
-  useEffect(() => {
-    fetchPagos();
-  }, [fetchPagos]);
-
-  useEffect(() => {
-    setPage(0);
-  }, [filtros]);
+  useEffect(() => { fetchPagos(); }, [fetchPagos]);
+  useEffect(() => { setPage(0); }, [filtros]);
 
   useEffect(() => {
     const loadSummary = async () => {
-      try {
-        const [ingresosDiaRes, deudasRes] = await Promise.allSettled([
-          pagoService.ingresosDia(),
-          pagoService.deudasPendientes(),
-        ]);
-        if (ingresosDiaRes.status === 'fulfilled') {
-          const d = ingresosDiaRes.value.data;
-          setSummary((prev) => ({
-            ...prev,
-            ingresosDia: d.ingresosDia || d.total || 0,
-            ingresosMes: d.ingresosMes || 0,
-            totalIngresos: d.totalIngresos || 0,
-          }));
-        }
-        if (deudasRes.status === 'fulfilled') {
-          const d = deudasRes.value.data;
-          const list = Array.isArray(d) ? d : (d.content || []);
-          setDeudas(list);
-          const totalDeudas = list.reduce((acc, item) => acc + (item.saldo || item.deuda || 0), 0);
-          setSummary((prev) => ({ ...prev, deudasPendientes: totalDeudas }));
-        }
-      } catch {
+      const [ingresosDiaRes, deudasRes] = await Promise.allSettled([pagoService.ingresosDia(), pagoService.deudasPendientes()]);
+      if (ingresosDiaRes.status === 'fulfilled') {
+        const data = ingresosDiaRes.value.data;
+        setSummary((prev) => ({ ...prev, ingresosDia: data.ingresosDia || data.total || 0, ingresosMes: data.ingresosMes || 0, totalIngresos: data.totalIngresos || 0 }));
+      }
+      if (deudasRes.status === 'fulfilled') {
+        const data = deudasRes.value.data;
+        const list = Array.isArray(data) ? data : data.content || [];
+        setSummary((prev) => ({ ...prev, deudasPendientes: list.reduce((sum, item) => sum + Number(item.saldo || item.deuda || 0), 0) }));
       }
     };
     loadSummary();
   }, []);
 
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setPacientes([]);
-      return;
-    }
-    const timeout = setTimeout(async () => {
+    if (!searchTerm.trim()) { setPacientes([]); return; }
+    const timeout = window.setTimeout(async () => {
       try {
         const response = await pacienteService.buscar(searchTerm.trim());
         const data = response.data;
-        setPacientes(Array.isArray(data) ? data : (data.content || []));
+        setPacientes(Array.isArray(data) ? data : data.content || []);
         setShowPacienteDropdown(true);
-      } catch {
-        setPacientes([]);
-      }
+      } catch { setPacientes([]); }
     }, 300);
-    return () => clearTimeout(timeout);
+    return () => window.clearTimeout(timeout);
   }, [searchTerm]);
 
   useEffect(() => {
-    if (!showModal || !form.pacienteId) {
-      setTratamientos([]);
-      return;
-    }
+    if (!showModal || !form.pacienteId) { setTratamientos([]); return; }
     const loadTratamientos = async () => {
       try {
         const response = await tratamientoService.listar({ pacienteId: form.pacienteId });
         const data = response.data;
-        setTratamientos(Array.isArray(data) ? data : (data.content || []));
-      } catch {
-        setTratamientos([]);
-      }
+        setTratamientos(Array.isArray(data) ? data : data.content || []);
+      } catch { setTratamientos([]); }
     };
     loadTratamientos();
   }, [showModal, form.pacienteId]);
 
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFiltros((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const clearFilters = () => {
-    setFiltros({ paciente: '', fechaDesde: '', fechaHasta: '', metodoPago: '' });
-  };
+  const visibleTotal = useMemo(() => pagos.reduce((sum, pago) => sum + Number(pago.montoPagado || pago.monto || 0), 0), [pagos]);
+  const saldoCalculado = () => Math.max(0, (parseFloat(form.montoTotal) || 0) - (parseFloat(form.montoPagado) || 0));
 
   const selectPaciente = (paciente) => {
-    setForm((prev) => ({ ...prev, pacienteId: paciente.id }));
+    setForm((prev) => ({ ...prev, pacienteId: paciente.id, tratamientoId: '', montoTotal: '' }));
     setSelectedPacienteName(`${paciente.nombres || ''} ${paciente.apellidos || ''}`.trim());
+    setSelectedTratamiento(null);
     setSearchTerm('');
     setShowPacienteDropdown(false);
-    if (errors.pacienteId) setErrors((prev) => ({ ...prev, pacienteId: '' }));
+    setErrors((prev) => ({ ...prev, pacienteId: '' }));
   };
 
-  const handleSelectTratamiento = (trat) => {
-    setForm((prev) => ({
-      ...prev,
-      tratamientoId: trat.id,
-      montoTotal: trat.costoTotal || trat.monto || 0,
-    }));
-    setSelectedTratamiento(`${trat.codigo || trat.nombre || ''} - S/${(trat.costoTotal || trat.monto || 0).toFixed(2)}`);
-    setShowTratamientoDropdown(false);
-    if (errors.tratamientoId) setErrors((prev) => ({ ...prev, tratamientoId: '' }));
-  };
-
-  const handleFormChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
-  };
-
-  const saldoCalculado = () => {
-    const total = parseFloat(form.montoTotal) || 0;
-    const pagado = parseFloat(form.montoPagado) || 0;
-    return Math.max(0, total - pagado);
+  const selectTratamiento = (trat) => {
+    const amount = trat.costoTotal || trat.monto || trat.precioFinal || trat.precio || 0;
+    setForm((prev) => ({ ...prev, tratamientoId: trat.id, montoTotal: amount }));
+    setSelectedTratamiento(`${trat.codigo || trat.nombre || 'Tratamiento'} - ${formatCurrency(amount)}`);
+    setErrors((prev) => ({ ...prev, tratamientoId: '' }));
   };
 
   const openModal = () => {
@@ -209,633 +146,70 @@ const Pagos = () => {
 
   const validate = () => {
     const newErrors = {};
-    if (!form.pacienteId) newErrors.pacienteId = 'Debe seleccionar un paciente';
-    if (!form.tratamientoId) newErrors.tratamientoId = 'Debe seleccionar un tratamiento';
-    if (!form.montoTotal || parseFloat(form.montoTotal) <= 0) newErrors.montoTotal = 'Monto total inválido';
-    if (form.montoPagado === '' || parseFloat(form.montoPagado) < 0) newErrors.montoPagado = 'Monto pagado inválido';
-    if (parseFloat(form.montoPagado) > parseFloat(form.montoTotal)) newErrors.montoPagado = 'No puede pagar más que el total';
-    if (!form.metodoPago) newErrors.metodoPago = 'Debe seleccionar un método de pago';
+    if (!form.pacienteId) newErrors.pacienteId = 'Seleccione un paciente';
+    if (!form.tratamientoId) newErrors.tratamientoId = 'Seleccione un tratamiento';
+    if (!form.montoTotal || parseFloat(form.montoTotal) <= 0) newErrors.montoTotal = 'Monto total invalido';
+    if (form.montoPagado === '' || parseFloat(form.montoPagado) < 0) newErrors.montoPagado = 'Monto pagado invalido';
+    if (parseFloat(form.montoPagado) > parseFloat(form.montoTotal)) newErrors.montoPagado = 'No puede pagar mas que el total';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validate()) {
-      toast.error('Corrige los errores del formulario');
-      return;
-    }
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!validate()) { toast.error('Corrige los errores del formulario'); return; }
     setSaving(true);
     try {
-      await pagoService.crear({
-        pacienteId: form.pacienteId,
-        tratamientoId: form.tratamientoId,
-        montoTotal: parseFloat(form.montoTotal),
-        montoPagado: parseFloat(form.montoPagado),
-        metodoPago: form.metodoPago,
-        numeroOperacion: form.numeroOperacion.trim() || undefined,
-        observaciones: form.observaciones.trim() || undefined,
-      });
+      await pagoService.crear({ pacienteId: form.pacienteId, tratamientoId: form.tratamientoId, montoTotal: parseFloat(form.montoTotal), montoPagado: parseFloat(form.montoPagado), metodoPago: form.metodoPago, numeroOperacion: form.numeroOperacion.trim() || undefined, observaciones: form.observaciones.trim() || undefined });
       toast.success('Pago registrado exitosamente');
       setShowModal(false);
       fetchPagos();
     } catch (error) {
-      const msg = error.response?.data?.message || 'Error al registrar pago';
-      toast.error(msg);
-    } finally {
-      setSaving(false);
-    }
+      toast.error(error.response?.data?.message || 'Error al registrar pago');
+    } finally { setSaving(false); }
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00'));
-    return d.toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' });
-  };
-
-  const formatCurrency = (val) => {
-    if (val === null || val === undefined) return 'S/ 0.00';
-    return `S/ ${Number(val).toFixed(2)}`;
-  };
+  const clearFilters = () => setFiltros({ paciente: '', fechaDesde: '', fechaHasta: '', metodoPago: '' });
 
   const renderPagination = () => {
     if (totalPages <= 1) return null;
-    const pages = [];
-    const maxVisible = 5;
-    let start = Math.max(0, page - Math.floor(maxVisible / 2));
-    const end = Math.min(totalPages, start + maxVisible);
-    if (end - start < maxVisible) start = Math.max(0, end - maxVisible);
-    for (let i = start; i < end; i++) pages.push(i);
-    return (
-      <nav>
-        <ul className="pagination pagination-sm justify-content-center mb-0 py-3">
-          <li className={`page-item ${page === 0 ? 'disabled' : ''}`}>
-            <button className="page-link" onClick={() => setPage(page - 1)} disabled={page === 0}>
-              <i className="bi bi-chevron-left"></i>
-            </button>
-          </li>
-          {start > 0 && (
-            <>
-              <li className="page-item"><button className="page-link" onClick={() => setPage(0)}>1</button></li>
-              {start > 1 && <li className="page-item disabled"><span className="page-link">...</span></li>}
-            </>
-          )}
-          {pages.map((p) => (
-            <li key={p} className={`page-item ${p === page ? 'active' : ''}`}>
-              <button className="page-link" onClick={() => setPage(p)}>{p + 1}</button>
-            </li>
-          ))}
-          {end < totalPages && (
-            <>
-              {end < totalPages - 1 && <li className="page-item disabled"><span className="page-link">...</span></li>}
-              <li className="page-item"><button className="page-link" onClick={() => setPage(totalPages - 1)}>{totalPages}</button></li>
-            </>
-          )}
-          <li className={`page-item ${page === totalPages - 1 ? 'disabled' : ''}`}>
-            <button className="page-link" onClick={() => setPage(page + 1)} disabled={page === totalPages - 1}>
-              <i className="bi bi-chevron-right"></i>
-            </button>
-          </li>
-        </ul>
-      </nav>
-    );
+    const start = Math.max(0, Math.min(page - 2, totalPages - 5));
+    const pages = Array.from({ length: Math.min(5, totalPages) }, (_, i) => start + i);
+    return <div className="flex items-center justify-center gap-1.5 p-4 border-t border-slate-700/60 bg-slate-800/40"><button disabled={page === 0} onClick={() => setPage(page - 1)} className="w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-700 disabled:opacity-30"><span className="material-symbols-outlined text-sm">chevron_left</span></button>{pages.map((p) => <button key={p} onClick={() => setPage(p)} className={`w-9 h-9 rounded-lg text-xs font-bold ${p === page ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}>{p + 1}</button>)}<button disabled={page === totalPages - 1} onClick={() => setPage(page + 1)} className="w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-700 disabled:opacity-30"><span className="material-symbols-outlined text-sm">chevron_right</span></button></div>;
   };
 
   return (
-    <div className="fade-in">
-      <div className="page-header">
-        <h2 className="page-title">
-          <i className="bi bi-credit-card-2-front-fill me-2 text-primary"></i>Pagos
-        </h2>
-        <button className="btn btn-dental-primary d-inline-flex align-items-center gap-2" onClick={openModal}>
-          <i className="bi bi-plus-lg"></i> Nuevo Pago
-        </button>
-      </div>
+    <div className="p-8 space-y-6 animate-in text-slate-300">
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-400">Caja y finanzas</p><h1 className="font-['Geist'] text-3xl lg:text-4xl font-black text-white tracking-tight mt-2">Pagos</h1><p className="text-sm text-slate-400 mt-1">Control de ingresos, deudas, metodos de pago y movimientos de caja.</p></div><button onClick={openModal} className="self-start xl:self-auto rounded-2xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-500 shadow-lg shadow-blue-900/30 flex items-center gap-2"><span className="material-symbols-outlined text-lg">add</span>Nuevo pago</button></div>
 
-      <div className="row g-3 mb-4">
-        <div className="col-md-3">
-          <div className="card border-0 shadow-sm">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <small className="text-muted text-uppercase fw-semibold">Total Ingresos</small>
-                  <h4 className="mb-0 text-success">{formatCurrency(summary.totalIngresos)}</h4>
-                </div>
-                <i className="bi bi-wallet2 fs-1 text-success opacity-25"></i>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="col-md-3">
-          <div className="card border-0 shadow-sm">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <small className="text-muted text-uppercase fw-semibold">Ingresos del Día</small>
-                  <h4 className="mb-0 text-primary">{formatCurrency(summary.ingresosDia)}</h4>
-                </div>
-                <i className="bi bi-calendar-day fs-1 text-primary opacity-25"></i>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="col-md-3">
-          <div className="card border-0 shadow-sm">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <small className="text-muted text-uppercase fw-semibold">Ingresos del Mes</small>
-                  <h4 className="mb-0 text-info">{formatCurrency(summary.ingresosMes)}</h4>
-                </div>
-                <i className="bi bi-calendar-month fs-1 text-info opacity-25"></i>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="col-md-3">
-          <div className="card border-0 shadow-sm">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <small className="text-muted text-uppercase fw-semibold">Deudas Pendientes</small>
-                  <h4 className="mb-0 text-danger">{formatCurrency(summary.deudasPendientes)}</h4>
-                </div>
-                <i className="bi bi-exclamation-triangle fs-1 text-danger opacity-25"></i>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5"><StatCard icon="account_balance_wallet" label="Total ingresos" value={formatCurrency(summary.totalIngresos || visibleTotal)} color="emerald" /><StatCard icon="today" label="Ingresos del dia" value={formatCurrency(summary.ingresosDia)} color="blue" /><StatCard icon="calendar_month" label="Ingresos del mes" value={formatCurrency(summary.ingresosMes)} color="cyan" /><StatCard icon="warning" label="Deudas pendientes" value={formatCurrency(summary.deudasPendientes)} color="rose" /></div>
 
-      {deudas.length > 0 && (
-        <div className="card border-0 shadow-sm mb-4">
-          <div className="card-header bg-transparent border-bottom d-flex align-items-center gap-2">
-            <i className="bi bi-exclamation-circle-fill text-danger"></i>
-            <strong>Deudas Pendientes</strong>
-            <span className="badge bg-danger ms-auto">{deudas.length} paciente(s)</span>
-          </div>
-          <div className="card-body p-0">
-            <div className="table-responsive">
-              <table className="table table-modern mb-0">
-                <thead>
-                  <tr>
-                    <th>Paciente</th>
-                    <th>Tratamiento</th>
-                    <th>Total</th>
-                    <th>Pagado</th>
-                    <th>Saldo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {deudas.map((item, idx) => (
-                    <tr key={item.id || idx}>
-                      <td className="fw-semibold">
-                        {item.paciente
-                          ? `${item.paciente.nombres || ''} ${item.paciente.apellidos || ''}`.trim()
-                          : item.pacienteNombre || '-'}
-                      </td>
-                      <td>{item.tratamiento?.nombre || item.tratamientoNombre || '-'}</td>
-                      <td>{formatCurrency(item.montoTotal || item.total)}</td>
-                      <td>{formatCurrency(item.montoPagado || item.pagado)}</td>
-                      <td className="text-danger fw-bold">{formatCurrency(item.saldo || item.deuda || 0)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
+      <section className="rounded-3xl border border-slate-700/50 bg-[#1E293B] shadow-2xl shadow-black/10 overflow-hidden">
+        <div className="p-4 border-b border-slate-700/60 bg-slate-800/40 grid grid-cols-1 lg:grid-cols-[1fr_180px_180px_220px_auto] gap-3"><FilterInput placeholder="Buscar paciente..." value={filtros.paciente} onChange={(v) => setFiltros((p) => ({ ...p, paciente: v }))} icon="search" /><FilterInput type="date" value={filtros.fechaDesde} onChange={(v) => setFiltros((p) => ({ ...p, fechaDesde: v }))} /><FilterInput type="date" value={filtros.fechaHasta} onChange={(v) => setFiltros((p) => ({ ...p, fechaHasta: v }))} /><select value={filtros.metodoPago} onChange={(e) => setFiltros((p) => ({ ...p, metodoPago: e.target.value }))} className="rounded-2xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white focus:border-blue-500"><option value="">Todos los metodos</option>{METODOS_PAGO.map((m) => <option key={m} value={m}>{m}</option>)}</select><div className="flex gap-2"><button onClick={fetchPagos} className="rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-500">Buscar</button><button onClick={clearFilters} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700">Limpiar</button></div></div>
 
-      <div className="filter-section">
-        <div className="filter-row">
-          <div className="filter-group">
-            <label htmlFor="paciente"><i className="bi bi-search me-1"></i>Paciente</label>
-            <input
-              id="paciente"
-              type="text"
-              className="form-control"
-              name="paciente"
-              placeholder="Buscar paciente..."
-              value={filtros.paciente}
-              onChange={handleFilterChange}
-            />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="fechaDesde"><i className="bi bi-calendar-range me-1"></i>Fecha Desde</label>
-            <input
-              id="fechaDesde"
-              type="date"
-              className="form-control"
-              name="fechaDesde"
-              value={filtros.fechaDesde}
-              onChange={handleFilterChange}
-            />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="fechaHasta"><i className="bi bi-calendar-range me-1"></i>Fecha Hasta</label>
-            <input
-              id="fechaHasta"
-              type="date"
-              className="form-control"
-              name="fechaHasta"
-              value={filtros.fechaHasta}
-              onChange={handleFilterChange}
-            />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="metodoPago"><i className="bi bi-funnel me-1"></i>Método de Pago</label>
-            <select
-              id="metodoPago"
-              className="form-select"
-              name="metodoPago"
-              value={filtros.metodoPago}
-              onChange={handleFilterChange}
-            >
-              <option value="">Todos</option>
-              {METODOS_PAGO.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          </div>
-          <div className="filter-group d-flex align-items-end">
-            <button className="btn btn-outline-secondary" onClick={clearFilters} title="Limpiar filtros">
-              <i className="bi bi-eraser"></i>
-            </button>
-          </div>
-        </div>
-      </div>
+        <div className="px-5 py-3 border-b border-slate-700/60 flex items-center justify-between text-xs text-slate-400"><span>{totalElements > 0 ? `Mostrando ${page * PAGE_SIZE + 1}-${Math.min((page + 1) * PAGE_SIZE, totalElements)} de ${totalElements}` : 'Sin resultados'}</span><span className="rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 px-3 py-1 font-bold">Movimientos</span></div>
 
-      <div className="table-container">
-        <div className="table-header">
-          <span className="text-muted">
-            {totalElements > 0
-              ? `Mostrando ${page * PAGE_SIZE + 1}-${Math.min((page + 1) * PAGE_SIZE, totalElements)} de ${totalElements} pagos`
-              : 'Sin resultados'}
-          </span>
-          {totalElements > 0 && (
-            <span className="badge bg-primary">{totalElements} registros</span>
-          )}
-        </div>
+        {loading ? <Loading text="Cargando pagos..." /> : pagos.length === 0 ? <EmptyState hasFilter={Boolean(filtros.paciente || filtros.fechaDesde || filtros.fechaHasta || filtros.metodoPago)} clear={clearFilters} create={openModal} /> : <div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead className="bg-slate-800/80 border-b border-slate-700/60"><tr>{['Paciente', 'Fecha', 'Monto', 'Metodo', 'Operacion', 'Saldo', 'Acciones'].map((h) => <th key={h} className={`px-6 py-3.5 text-xs font-['Geist'] font-bold text-slate-400 uppercase tracking-wider ${h === 'Acciones' ? 'text-right' : ''}`}>{h}</th>)}</tr></thead><tbody className="divide-y divide-slate-700/40">{pagos.map((pago) => <tr key={pago.id} className="hover:bg-slate-800/50 transition-colors"><td className="px-6 py-4"><span className="block font-bold text-white text-sm">{getPatientName(pago)}</span><span className="block text-xs text-slate-400">Pago #{pago.id}</span></td><td className="px-6 py-4 text-xs text-slate-400">{formatDate(pago.fecha)}</td><td className="px-6 py-4 text-sm font-black text-emerald-400">{formatCurrency(pago.montoPagado || pago.monto)}</td><td className="px-6 py-4"><span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-400">{pago.metodoPago || '-'}</span></td><td className="px-6 py-4 text-xs text-slate-400">{pago.numeroOperacion || '-'}</td><td className="px-6 py-4 text-sm font-bold text-amber-400">{formatCurrency(pago.saldo || 0)}</td><td className="px-6 py-4"><div className="flex justify-end"><IconButton icon="visibility" color="text-sky-400" onClick={() => setViewPago(pago)} /></div></td></tr>)}</tbody></table></div>}
+        {renderPagination()}
+      </section>
 
-        {loading ? (
-          <div className="loading-container">
-            <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }} role="status">
-              <span className="visually-hidden">Cargando...</span>
-            </div>
-          </div>
-        ) : pagos.length === 0 ? (
-          <div className="text-center py-5">
-            <i className="bi bi-credit-card-2-front" style={{ fontSize: '3rem', color: '#ccc' }}></i>
-            <p className="mt-3 text-muted">
-              {filtros.paciente || filtros.fechaDesde || filtros.metodoPago
-                ? 'No se encontraron pagos con esos criterios'
-                : 'No hay pagos registrados'}
-            </p>
-            {(filtros.paciente || filtros.fechaDesde || filtros.metodoPago) ? (
-              <button className="btn btn-outline-primary" onClick={clearFilters}>Limpiar filtros</button>
-            ) : (
-              <button className="btn btn-dental-primary" onClick={openModal}>Registrar primer pago</button>
-            )}
-          </div>
-        ) : (
-          <div className="table-responsive">
-            <table className="table table-modern">
-              <thead>
-                <tr>
-                  <th>N° Pago</th>
-                  <th>Paciente</th>
-                  <th>Tratamiento</th>
-                  <th>Monto Total</th>
-                  <th>Monto Pagado</th>
-                  <th>Saldo</th>
-                  <th>Fecha</th>
-                  <th>Método</th>
-                  <th className="text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pagos.map((pago) => (
-                  <tr key={pago.id}>
-                    <td><span className="fw-semibold">{pago.numeroPago || pago.id || '-'}</span></td>
-                    <td>
-                      {pago.paciente
-                        ? `${pago.paciente.nombres || ''} ${pago.paciente.apellidos || ''}`.trim()
-                        : pago.pacienteNombre || '-'}
-                    </td>
-                    <td>{pago.tratamiento?.nombre || pago.tratamientoNombre || '-'}</td>
-                    <td>{formatCurrency(pago.montoTotal)}</td>
-                    <td>{formatCurrency(pago.montoPagado)}</td>
-                    <td className={pago.saldo > 0 ? 'text-danger fw-bold' : 'text-success'}>
-                      {formatCurrency(pago.saldo)}
-                    </td>
-                    <td>{formatDate(pago.fecha)}</td>
-                    <td>
-                      <span className="badge badge-status" style={{ backgroundColor: '#E3F2FD', color: '#1565C0' }}>
-                        {pago.metodoPago || '-'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="d-flex gap-1 justify-content-center flex-nowrap">
-                        <button className="btn btn-sm btn-outline-info" title="Ver detalle" onClick={() => setViewPago(pago)}>
-                          <i className="bi bi-eye"></i>
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline-secondary"
-                          title="Descargar comprobante"
-                          onClick={async () => {
-                            try {
-                              const res = await pagoService.buscarPorId(pago.id);
-                              const blob = new Blob([JSON.stringify(res.data)], { type: 'application/json' });
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = `comprobante-${pago.numeroPago || pago.id}.json`;
-                              a.click();
-                              URL.revokeObjectURL(url);
-                              toast.success('Comprobante descargado');
-                            } catch {
-                              toast.error('Error al descargar comprobante');
-                            }
-                          }}
-                        >
-                          <i className="bi bi-download"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {!loading && renderPagination()}
-      </div>
-
-      {showModal && (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  <i className="bi bi-plus-circle-fill text-primary me-2"></i>Nuevo Pago
-                </h5>
-                <button type="button" className="btn-close" onClick={() => !saving && setShowModal(false)}></button>
-              </div>
-              <form onSubmit={handleSubmit} noValidate>
-                <div className="modal-body">
-                  <div className="row g-3">
-                    <div className="col-md-6">
-                      <label className="form-label">Paciente <span className="text-danger">*</span></label>
-                      <div className="position-relative">
-                        <input
-                          type="text"
-                          className={`form-control ${errors.pacienteId ? 'is-invalid' : ''}`}
-                          placeholder="Buscar paciente..."
-                          value={searchTerm}
-                          onChange={(e) => {
-                            setSearchTerm(e.target.value);
-                            if (form.pacienteId) {
-                              setForm((prev) => ({ ...prev, pacienteId: '', tratamientoId: '' }));
-                              setSelectedPacienteName('');
-                              setSelectedTratamiento(null);
-                            }
-                          }}
-                          onFocus={() => { if (pacientes.length > 0) setShowPacienteDropdown(true); }}
-                          onBlur={() => setTimeout(() => setShowPacienteDropdown(false), 200)}
-                          disabled={saving}
-                        />
-                        {selectedPacienteName && !searchTerm && (
-                          <div className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style={{ pointerEvents: 'none', zIndex: 1 }}>
-                            <i className="bi bi-check-circle-fill text-success me-1"></i>
-                            {selectedPacienteName}
-                          </div>
-                        )}
-                        {errors.pacienteId && <div className="invalid-feedback">{errors.pacienteId}</div>}
-                        {showPacienteDropdown && pacientes.length > 0 && (
-                          <ul className="list-group position-absolute w-100 shadow-sm" style={{ zIndex: 100, maxHeight: 200, overflowY: 'auto' }}>
-                            {pacientes.map((p) => (
-                              <li
-                                key={p.id}
-                                className="list-group-item list-group-item-action cursor-pointer"
-                                onMouseDown={() => selectPaciente(p)}
-                              >
-                                <strong>{p.nombres} {p.apellidos}</strong>
-                                <small className="text-muted ms-2">DNI: {p.dni || '-'}</small>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label">Tratamiento <span className="text-danger">*</span></label>
-                      <div className="position-relative">
-                        <input
-                          type="text"
-                          className={`form-control ${errors.tratamientoId ? 'is-invalid' : ''}`}
-                          placeholder={form.pacienteId ? 'Seleccionar tratamiento...' : 'Primero seleccione un paciente'}
-                          value={selectedTratamiento || ''}
-                          onFocus={() => {
-                            if (tratamientos.length > 0) setShowTratamientoDropdown(true);
-                          }}
-                          onBlur={() => setTimeout(() => setShowTratamientoDropdown(false), 200)}
-                          disabled={saving || !form.pacienteId}
-                          readOnly
-                        />
-                        {errors.tratamientoId && <div className="invalid-feedback">{errors.tratamientoId}</div>}
-                        {showTratamientoDropdown && tratamientos.length > 0 && (
-                          <ul className="list-group position-absolute w-100 shadow-sm" style={{ zIndex: 100, maxHeight: 200, overflowY: 'auto' }}>
-                            {tratamientos.map((t) => (
-                              <li
-                                key={t.id}
-                                className="list-group-item list-group-item-action cursor-pointer"
-                                onMouseDown={() => handleSelectTratamiento(t)}
-                              >
-                                <strong>{t.nombre || t.codigo}</strong>
-                                <small className="text-muted ms-2">S/ {(t.costoTotal || t.monto || 0).toFixed(2)}</small>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        {form.pacienteId && tratamientos.length === 0 && (
-                          <small className="text-muted">No hay tratamientos para este paciente</small>
-                        )}
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <label className="form-label">Monto Total <span className="text-danger">*</span></label>
-                      <div className="input-group">
-                        <span className="input-group-text">S/</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          className={`form-control ${errors.montoTotal ? 'is-invalid' : ''}`}
-                          name="montoTotal"
-                          value={form.montoTotal}
-                          onChange={handleFormChange}
-                          disabled={saving}
-                        />
-                        {errors.montoTotal && <div className="invalid-feedback">{errors.montoTotal}</div>}
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <label className="form-label">Monto Pagado <span className="text-danger">*</span></label>
-                      <div className="input-group">
-                        <span className="input-group-text">S/</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          className={`form-control ${errors.montoPagado ? 'is-invalid' : ''}`}
-                          name="montoPagado"
-                          value={form.montoPagado}
-                          onChange={handleFormChange}
-                          disabled={saving}
-                        />
-                        {errors.montoPagado && <div className="invalid-feedback">{errors.montoPagado}</div>}
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <label className="form-label">Saldo</label>
-                      <div className="input-group">
-                        <span className="input-group-text">S/</span>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={saldoCalculado().toFixed(2)}
-                          readOnly
-                          disabled
-                        />
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label">Método de Pago <span className="text-danger">*</span></label>
-                      <select
-                        className={`form-select ${errors.metodoPago ? 'is-invalid' : ''}`}
-                        name="metodoPago"
-                        value={form.metodoPago}
-                        onChange={handleFormChange}
-                        disabled={saving}
-                      >
-                        {METODOS_PAGO.map((m) => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                      {errors.metodoPago && <div className="invalid-feedback">{errors.metodoPago}</div>}
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label">N° Operación</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        name="numeroOperacion"
-                        value={form.numeroOperacion}
-                        onChange={handleFormChange}
-                        placeholder="Número de operación (opcional)"
-                        disabled={saving}
-                      />
-                    </div>
-                    <div className="col-12">
-                      <label className="form-label">Observaciones</label>
-                      <textarea
-                        className="form-control"
-                        name="observaciones"
-                        value={form.observaciones}
-                        onChange={handleFormChange}
-                        rows={2}
-                        placeholder="Observaciones (opcional)"
-                        disabled={saving}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={saving}>
-                    Cancelar
-                  </button>
-                  <button type="submit" className="btn btn-dental-primary d-inline-flex align-items-center gap-2" disabled={saving}>
-                    {saving && <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>}
-                    {saving ? 'Guardando...' : 'Registrar Pago'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {viewPago && (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  <i className="bi bi-info-circle-fill text-primary me-2"></i>Detalle del Pago
-                </h5>
-                <button type="button" className="btn-close" onClick={() => setViewPago(null)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="row g-3">
-                  <div className="col-6">
-                    <small className="text-muted d-block">N° Pago</small>
-                    <strong>{viewPago.numeroPago || viewPago.id || '-'}</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Fecha</small>
-                    <strong>{formatDate(viewPago.fecha)}</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Paciente</small>
-                    <strong>
-                      {viewPago.paciente
-                        ? `${viewPago.paciente.nombres || ''} ${viewPago.paciente.apellidos || ''}`.trim()
-                        : viewPago.pacienteNombre || '-'}
-                    </strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Tratamiento</small>
-                    <strong>{viewPago.tratamiento?.nombre || viewPago.tratamientoNombre || '-'}</strong>
-                  </div>
-                  <div className="col-4">
-                    <small className="text-muted d-block">Monto Total</small>
-                    <strong>{formatCurrency(viewPago.montoTotal)}</strong>
-                  </div>
-                  <div className="col-4">
-                    <small className="text-muted d-block">Monto Pagado</small>
-                    <strong className="text-success">{formatCurrency(viewPago.montoPagado)}</strong>
-                  </div>
-                  <div className="col-4">
-                    <small className="text-muted d-block">Saldo</small>
-                    <strong className={viewPago.saldo > 0 ? 'text-danger' : 'text-success'}>{formatCurrency(viewPago.saldo)}</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Método de Pago</small>
-                    <strong>{viewPago.metodoPago || '-'}</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">N° Operación</small>
-                    <strong>{viewPago.numeroOperacion || '-'}</strong>
-                  </div>
-                  {viewPago.observaciones && (
-                    <div className="col-12">
-                      <small className="text-muted d-block">Observaciones</small>
-                      <strong>{viewPago.observaciones}</strong>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setViewPago(null)}>Cerrar</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {showModal && <PaymentModal form={form} setForm={setForm} errors={errors} saving={saving} onClose={() => !saving && setShowModal(false)} onSubmit={handleSubmit} searchTerm={searchTerm} setSearchTerm={setSearchTerm} pacientes={pacientes} showPacienteDropdown={showPacienteDropdown} setShowPacienteDropdown={setShowPacienteDropdown} selectPaciente={selectPaciente} selectedPacienteName={selectedPacienteName} tratamientos={tratamientos} selectedTratamiento={selectedTratamiento} selectTratamiento={selectTratamiento} saldo={saldoCalculado()} />}
+      {viewPago && <ViewModal pago={viewPago} onClose={() => setViewPago(null)} />}
     </div>
   );
 };
+
+const StatCard = ({ icon, label, value, color }) => { const map = { emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20', cyan: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20', rose: 'bg-rose-500/10 text-rose-400 border-rose-500/20' }; return <div className="rounded-2xl border border-slate-700/50 bg-[#1E293B] p-5 flex items-center gap-4 shadow-xl shadow-black/10"><div className={`h-12 w-12 rounded-2xl border flex items-center justify-center ${map[color]}`}><span className="material-symbols-outlined">{icon}</span></div><div><p className="m-0 text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p><p className="m-0 font-['Geist'] text-2xl font-black text-white">{value}</p></div></div>; };
+const FilterInput = ({ icon, value, onChange, ...props }) => <div className="relative">{icon && <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xl">{icon}</span>}<input {...props} value={value} onChange={(e) => onChange(e.target.value)} className={`w-full rounded-2xl border border-slate-700 bg-slate-900 py-3 ${icon ? 'pl-11' : 'px-3'} pr-3 text-sm text-white placeholder-slate-500 focus:border-blue-500`} /></div>;
+const IconButton = ({ icon, color, onClick }) => <button type="button" onClick={onClick} className={`p-2 rounded-xl ${color} hover:bg-slate-700/70`}><span className="material-symbols-outlined text-lg">{icon}</span></button>;
+const Loading = ({ text }) => <div className="py-24 text-center text-slate-500"><span className="material-symbols-outlined text-5xl text-blue-400 animate-spin">progress_activity</span><p className="mt-3 text-sm">{text}</p></div>;
+const EmptyState = ({ hasFilter, clear, create }) => <div className="py-24 text-center text-slate-500"><div className="mx-auto w-20 h-20 rounded-3xl border border-slate-700/60 bg-slate-800/70 flex items-center justify-center"><span className="material-symbols-outlined text-5xl text-slate-500">credit_card</span></div><p className="mt-5 text-lg font-semibold text-slate-300">{hasFilter ? 'No se encontraron pagos con esos criterios' : 'No hay pagos registrados'}</p><div className="mt-4 flex justify-center gap-2">{hasFilter && <button className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-700" onClick={clear}>Limpiar filtros</button>}<button className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500" onClick={create}>Crear primer pago</button></div></div>;
+const BaseModal = ({ title, children, onClose, max = 'max-w-3xl' }) => <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"><div className={`w-full ${max} max-h-[90vh] overflow-y-auto custom-scrollbar rounded-3xl border border-slate-700/60 bg-[#1E293B] p-6 shadow-2xl text-slate-300`}><div className="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-4 mb-5"><h3 className="font-['Geist'] text-xl font-bold text-white m-0">{title}</h3><button onClick={onClose} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button></div>{children}</div></div>;
+const Info = ({ label, value }) => <div className="rounded-2xl border border-slate-700/60 bg-slate-800/70 p-3"><p className="m-0 text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p><p className="m-0 mt-1 font-semibold text-white">{value}</p></div>;
+const PaymentModal = ({ form, setForm, errors, saving, onClose, onSubmit, searchTerm, setSearchTerm, pacientes, showPacienteDropdown, setShowPacienteDropdown, selectPaciente, selectedPacienteName, tratamientos, selectedTratamiento, selectTratamiento, saldo }) => <BaseModal title="Registrar pago" onClose={onClose} max="max-w-5xl"><form onSubmit={onSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-5"><div className="lg:col-span-2 space-y-4"><SearchBox label="Paciente" value={selectedPacienteName || searchTerm} onChange={(v) => { setSearchTerm(v); if (form.pacienteId) setForm((p) => ({ ...p, pacienteId: '', tratamientoId: '', montoTotal: '' })); }} placeholder="Buscar paciente..." error={errors.pacienteId} dropdown={showPacienteDropdown && pacientes.length > 0 && pacientes.map((p) => <button key={p.id} type="button" onMouseDown={() => selectPaciente(p)} className="w-full text-left px-4 py-3 hover:bg-slate-700"><span className="block text-sm font-bold text-white">{p.nombres} {p.apellidos}</span><span className="text-xs text-slate-400">DNI: {p.dni || '-'}</span></button>)} onFocus={() => pacientes.length > 0 && setShowPacienteDropdown(true)} onBlur={() => window.setTimeout(() => setShowPacienteDropdown(false), 180)} /><div><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Tratamiento</label><select value={form.tratamientoId} onChange={(e) => { const trat = tratamientos.find((t) => String(t.id) === e.target.value); if (trat) selectTratamiento(trat); }} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white focus:border-blue-500"><option value="">Seleccionar tratamiento...</option>{tratamientos.map((t) => <option key={t.id} value={t.id}>{t.nombre || t.descripcion || `Tratamiento ${t.id}`}</option>)}</select>{errors.tratamientoId && <p className="mt-1 text-xs text-rose-400">{errors.tratamientoId}</p>}{selectedTratamiento && <p className="mt-2 text-xs text-blue-400">{selectedTratamiento}</p>}</div><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><Input label="Monto total" type="number" value={form.montoTotal} error={errors.montoTotal} onChange={(v) => setForm((p) => ({ ...p, montoTotal: v }))} /><Input label="Monto pagado" type="number" value={form.montoPagado} error={errors.montoPagado} onChange={(v) => setForm((p) => ({ ...p, montoPagado: v }))} /></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Metodo</label><select value={form.metodoPago} onChange={(e) => setForm((p) => ({ ...p, metodoPago: e.target.value }))} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white focus:border-blue-500">{METODOS_PAGO.map((m) => <option key={m} value={m}>{m}</option>)}</select></div><Input label="Operacion" value={form.numeroOperacion} onChange={(v) => setForm((p) => ({ ...p, numeroOperacion: v }))} /></div><div><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Observaciones</label><textarea rows={3} value={form.observaciones} onChange={(e) => setForm((p) => ({ ...p, observaciones: e.target.value }))} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white placeholder-slate-500 focus:border-blue-500" /></div></div><aside className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5 h-fit space-y-4"><h3 className="font-['Geist'] text-lg font-bold text-white m-0">Resumen</h3><SummaryRow label="Total" value={formatCurrency(form.montoTotal || 0)} /><SummaryRow label="Pagado" value={formatCurrency(form.montoPagado || 0)} /><div className="border-t border-blue-500/20 pt-4"><SummaryRow label="Saldo" value={formatCurrency(saldo)} strong /></div><button disabled={saving} type="submit" className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white hover:bg-blue-500 disabled:opacity-60">{saving ? 'Guardando...' : 'Registrar pago'}</button></aside></form></BaseModal>;
+const SearchBox = ({ label, value, onChange, placeholder, error, dropdown, onFocus, onBlur }) => <div className="relative"><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">{label}</label><input value={value} onChange={(e) => onChange(e.target.value)} onFocus={onFocus} onBlur={onBlur} placeholder={placeholder} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white placeholder-slate-500 focus:border-blue-500" />{error && <p className="mt-1 text-xs text-rose-400">{error}</p>}{dropdown && <div className="absolute z-[120] mt-2 max-h-64 w-full overflow-y-auto rounded-2xl border border-slate-700 bg-slate-800 shadow-2xl custom-scrollbar">{dropdown}</div>}</div>;
+const Input = ({ label, value, onChange, error, ...props }) => <div><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">{label}</label><input {...props} value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white placeholder-slate-500 focus:border-blue-500" />{error && <p className="mt-1 text-xs text-rose-400">{error}</p>}</div>;
+const SummaryRow = ({ label, value, strong }) => <div className="flex items-center justify-between gap-4"><span className="text-sm text-blue-200">{label}</span><span className={`font-['Geist'] ${strong ? 'text-2xl font-black text-white' : 'font-bold text-white'}`}>{value}</span></div>;
+const ViewModal = ({ pago, onClose }) => <BaseModal title="Detalle de pago" onClose={onClose}><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><Info label="Paciente" value={getPatientName(pago)} /><Info label="Fecha" value={formatDate(pago.fecha)} /><Info label="Monto" value={formatCurrency(pago.montoPagado || pago.monto)} /><Info label="Metodo" value={pago.metodoPago || '-'} /><Info label="Operacion" value={pago.numeroOperacion || '-'} /><Info label="Observaciones" value={pago.observaciones || '-'} /></div><div className="flex justify-end mt-6"><button onClick={onClose} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-700">Cerrar</button></div></BaseModal>;
 
 export default Pagos;

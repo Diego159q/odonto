@@ -1,22 +1,30 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { tratamientoService } from '../services/endpoints';
 import { toast } from 'react-toastify';
 
 const PAGE_SIZE = 10;
-
 const ESTADOS = ['', 'PLANIFICADO', 'EN_PROCESO', 'TERMINADO', 'CANCELADO', 'PENDIENTE_PAGO'];
-const ESTADO_COLORS = {
-  PLANIFICADO: { bg: '#E3F2FD', color: '#1565C0' },
-  EN_PROCESO: { bg: '#FFF3E0', color: '#E65100' },
-  TERMINADO: { bg: '#E8F5E9', color: '#2E7D32' },
-  CANCELADO: { bg: '#FFEBEE', color: '#C62828' },
-  PENDIENTE_PAGO: { bg: '#FFF8E1', color: '#F57F17' },
+const STATUS = {
+  PLANIFICADO: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+  EN_PROCESO: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  TERMINADO: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  CANCELADO: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+  PENDIENTE_PAGO: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+};
+
+const formatCurrency = (value) => {
+  if (value == null) return 'S/ 0.00';
+  return `S/ ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const getPatientName = (trat) => {
+  if (trat.paciente) return `${trat.paciente.nombres || ''} ${trat.paciente.apellidos || ''}`.trim() || 'Paciente';
+  return trat.pacienteNombre || 'Paciente';
 };
 
 const Tratamientos = () => {
   const navigate = useNavigate();
-
   const [tratamientos, setTratamientos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -24,7 +32,6 @@ const Tratamientos = () => {
   const [totalElements, setTotalElements] = useState(0);
   const [searchPaciente, setSearchPaciente] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
-
   const [viewTratamiento, setViewTratamiento] = useState(null);
   const [changeEstadoId, setChangeEstadoId] = useState(null);
   const [changeEstadoValue, setChangeEstadoValue] = useState('');
@@ -52,86 +59,28 @@ const Tratamientos = () => {
         setTotalElements(0);
       }
     } catch (error) {
-      const msg = error.response?.data?.message || 'Error al cargar tratamientos';
-      toast.error(msg);
+      toast.error(error.response?.data?.message || 'Error al cargar tratamientos');
       setTratamientos([]);
     } finally {
       setLoading(false);
     }
   }, [page, searchPaciente, filterEstado]);
 
-  useEffect(() => {
-    fetchTratamientos();
-  }, [fetchTratamientos]);
+  useEffect(() => { fetchTratamientos(); }, [fetchTratamientos]);
+  useEffect(() => { setPage(0); }, [searchPaciente, filterEstado]);
 
-  useEffect(() => {
-    setPage(0);
-  }, [searchPaciente, filterEstado]);
-
-  const renderEstadoBadge = (estado) => {
-    const c = ESTADO_COLORS[estado] || { bg: '#F5F5F5', color: '#616161' };
-    return (
-      <span className="badge badge-status" style={{ backgroundColor: c.bg, color: c.color, border: `1px solid ${c.color}20` }}>
-        {estado || '-'}
-      </span>
-    );
-  };
-
-  const formatCurrency = (value) => {
-    if (value == null) return '$0';
-    return '$' + Number(value).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
-
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-    const pages = [];
-    const maxVisible = 5;
-    let start = Math.max(0, page - Math.floor(maxVisible / 2));
-    const end = Math.min(totalPages, start + maxVisible);
-    if (end - start < maxVisible) {
-      start = Math.max(0, end - maxVisible);
-    }
-    for (let i = start; i < end; i++) {
-      pages.push(i);
-    }
-    return (
-      <nav>
-        <ul className="pagination pagination-sm justify-content-center mb-0 py-3">
-          <li className={`page-item ${page === 0 ? 'disabled' : ''}`}>
-            <button className="page-link" onClick={() => setPage(page - 1)} disabled={page === 0}>
-              <i className="bi bi-chevron-left"></i>
-            </button>
-          </li>
-          {start > 0 && (
-            <>
-              <li className="page-item">
-                <button className="page-link" onClick={() => setPage(0)}>1</button>
-              </li>
-              {start > 1 && <li className="page-item disabled"><span className="page-link">...</span></li>}
-            </>
-          )}
-          {pages.map((p) => (
-            <li key={p} className={`page-item ${p === page ? 'active' : ''}`}>
-              <button className="page-link" onClick={() => setPage(p)}>{p + 1}</button>
-            </li>
-          ))}
-          {end < totalPages && (
-            <>
-              {end < totalPages - 1 && <li className="page-item disabled"><span className="page-link">...</span></li>}
-              <li className="page-item">
-                <button className="page-link" onClick={() => setPage(totalPages - 1)}>{totalPages}</button>
-              </li>
-            </>
-          )}
-          <li className={`page-item ${page === totalPages - 1 ? 'disabled' : ''}`}>
-            <button className="page-link" onClick={() => setPage(page + 1)} disabled={page === totalPages - 1}>
-              <i className="bi bi-chevron-right"></i>
-            </button>
-          </li>
-        </ul>
-      </nav>
-    );
-  };
+  const stats = useMemo(() => {
+    const enProceso = tratamientos.filter((t) => t.estado === 'EN_PROCESO').length;
+    const terminados = tratamientos.filter((t) => t.estado === 'TERMINADO').length;
+    const pendientePago = tratamientos.filter((t) => t.estado === 'PENDIENTE_PAGO').length;
+    const total = tratamientos.reduce((sum, t) => sum + Number(t.precioFinal || t.precio || t.costoTotal || 0), 0);
+    return [
+      { label: 'Tratamientos', value: totalElements || tratamientos.length, icon: 'medical_services', color: 'blue' },
+      { label: 'En proceso', value: enProceso, icon: 'pending_actions', color: 'amber' },
+      { label: 'Terminados', value: terminados, icon: 'task_alt', color: 'emerald' },
+      { label: 'Pipeline visible', value: formatCurrency(total), icon: 'payments', color: pendientePago ? 'purple' : 'blue' },
+    ];
+  }, [tratamientos, totalElements]);
 
   const handleChangeEstado = async () => {
     if (!changeEstadoId || !changeEstadoValue) return;
@@ -143,301 +92,67 @@ const Tratamientos = () => {
       setChangeEstadoValue('');
       fetchTratamientos();
     } catch (error) {
-      const msg = error.response?.data?.message || 'Error al actualizar estado';
-      toast.error(msg);
+      toast.error(error.response?.data?.message || 'Error al actualizar estado');
     } finally {
       setChangeEstadoLoading(false);
     }
   };
 
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+    const start = Math.max(0, Math.min(page - 2, totalPages - 5));
+    const pages = Array.from({ length: Math.min(5, totalPages) }, (_, i) => start + i);
+    return <div className="flex items-center justify-center gap-1.5 p-4 border-t border-slate-700/60 bg-slate-800/40"><button disabled={page === 0} onClick={() => setPage(page - 1)} className="w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-700 disabled:opacity-30"><span className="material-symbols-outlined text-sm">chevron_left</span></button>{pages.map((p) => <button key={p} onClick={() => setPage(p)} className={`w-9 h-9 rounded-lg text-xs font-bold ${p === page ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}>{p + 1}</button>)}<button disabled={page === totalPages - 1} onClick={() => setPage(page + 1)} className="w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-700 disabled:opacity-30"><span className="material-symbols-outlined text-sm">chevron_right</span></button></div>;
+  };
+
   return (
-    <div className="fade-in">
-      <div className="page-header">
-        <h2 className="page-title">
-          <i className="bi bi-heart-pulse-fill me-2 text-primary"></i>Tratamientos
-        </h2>
-        <Link to="/tratamientos/nuevo" className="btn btn-dental-primary d-inline-flex align-items-center gap-2">
-          <i className="bi bi-plus-lg"></i> Nuevo Tratamiento
-        </Link>
+    <div className="p-8 space-y-6 animate-in text-slate-300">
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-400">Area clinica</p>
+          <h1 className="font-['Geist'] text-3xl lg:text-4xl font-black text-white tracking-tight mt-2">Tratamientos</h1>
+          <p className="text-sm text-slate-400 mt-1">Gestiona tratamientos, sesiones, costos, estados y avance clinico.</p>
+        </div>
+        <Link to="/tratamientos/nuevo" className="self-start xl:self-auto rounded-2xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-500 shadow-lg shadow-blue-900/30 flex items-center gap-2 no-underline"><span className="material-symbols-outlined text-lg">add</span>Nuevo tratamiento</Link>
       </div>
 
-      <div className="filter-section">
-        <div className="filter-row">
-          <div className="filter-group">
-            <label htmlFor="searchPacienteTrat"><i className="bi bi-search me-1"></i>Paciente</label>
-            <input
-              id="searchPacienteTrat"
-              type="text"
-              className="form-control"
-              placeholder="Buscar por paciente..."
-              value={searchPaciente}
-              onChange={(e) => setSearchPaciente(e.target.value)}
-            />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="filterEstadoTrat"><i className="bi bi-funnel me-1"></i>Estado</label>
-            <select
-              id="filterEstadoTrat"
-              className="form-select"
-              value={filterEstado}
-              onChange={(e) => setFilterEstado(e.target.value)}
-            >
-              <option value="">Todos</option>
-              {ESTADOS.filter(Boolean).map((est) => (
-                <option key={est} value={est}>{est}</option>
-              ))}
-            </select>
-          </div>
-          <div className="filter-group d-flex align-items-end">
-            <button
-              className="btn btn-outline-secondary"
-              onClick={() => { setSearchPaciente(''); setFilterEstado(''); }}
-              title="Limpiar filtros"
-            >
-              <i className="bi bi-eraser"></i>
-            </button>
-          </div>
-        </div>
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">{stats.map((s) => <StatCard key={s.label} {...s} />)}</div>
 
-      <div className="table-container">
-        <div className="table-header">
-          <span className="text-muted">
-            {totalElements > 0
-              ? `Mostrando ${page * PAGE_SIZE + 1}-${Math.min((page + 1) * PAGE_SIZE, totalElements)} de ${totalElements} tratamientos`
-              : 'Sin resultados'}
-          </span>
-          {totalElements > 0 && (
-            <span className="badge bg-primary">{totalElements} registros</span>
-          )}
+      <section className="rounded-3xl border border-slate-700/50 bg-[#1E293B] shadow-2xl shadow-black/10 overflow-hidden">
+        <div className="p-4 border-b border-slate-700/60 bg-slate-800/40 grid grid-cols-1 lg:grid-cols-[1fr_240px_auto] gap-3">
+          <div className="relative"><span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xl">search</span><input value={searchPaciente} onChange={(e) => setSearchPaciente(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchTratamientos()} placeholder="Buscar por paciente..." className="w-full rounded-2xl border border-slate-700 bg-slate-900 py-3 pl-11 pr-10 text-sm text-white placeholder-slate-500 focus:border-blue-500" />{searchPaciente && <button onClick={() => setSearchPaciente('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><span className="material-symbols-outlined text-lg">close</span></button>}</div>
+          <select value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)} className="rounded-2xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white focus:border-blue-500"><option value="">Todos los estados</option>{ESTADOS.filter(Boolean).map((estado) => <option key={estado} value={estado}>{estado}</option>)}</select>
+          <div className="flex gap-2"><button onClick={fetchTratamientos} className="rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-500 flex items-center gap-1.5"><span className="material-symbols-outlined text-base">search</span>Buscar</button><button onClick={() => { setSearchPaciente(''); setFilterEstado(''); }} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 flex items-center gap-1.5"><span className="material-symbols-outlined text-base">ink_eraser</span>Limpiar</button></div>
         </div>
 
-        {loading ? (
-          <div className="loading-container">
-            <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }} role="status">
-              <span className="visually-hidden">Cargando...</span>
-            </div>
-          </div>
-        ) : tratamientos.length === 0 ? (
-          <div className="text-center py-5">
-            <i className="bi bi-heart-pulse" style={{ fontSize: '3rem', color: '#ccc' }}></i>
-            <p className="mt-3 text-muted">
-              {searchPaciente || filterEstado
-                ? 'No se encontraron tratamientos con esos criterios'
-                : 'No hay tratamientos registrados'}
-            </p>
-            {(searchPaciente || filterEstado) ? (
-              <button className="btn btn-outline-primary" onClick={() => { setSearchPaciente(''); setFilterEstado(''); }}>
-                Limpiar filtros
-              </button>
-            ) : (
-              <Link to="/tratamientos/nuevo" className="btn btn-dental-primary">
-                Crear primer tratamiento
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className="table-responsive">
-            <table className="table table-modern">
-              <thead>
-                <tr>
-                  <th>Paciente</th>
-                  <th>Nombre Tratamiento</th>
-                  <th>Pieza</th>
-                  <th>Sesiones</th>
-                  <th>Precio</th>
-                  <th>Estado</th>
-                  <th>Avance</th>
-                  <th className="text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tratamientos.map((trat) => {
-                  const pacienteName = trat.paciente
-                    ? `${trat.paciente.nombres || ''} ${trat.paciente.apellidos || ''}`.trim()
-                    : trat.pacienteNombre || '-';
-                  const avance = trat.numeroSesiones > 0
-                    ? Math.round(((trat.sesionesRealizadas || 0) / trat.numeroSesiones) * 100)
-                    : 0;
-                  return (
-                    <tr key={trat.id}>
-                      <td><span className="fw-semibold">{pacienteName}</span></td>
-                      <td>{trat.nombre || '-'}</td>
-                      <td>{trat.piezaDental || (trat.pieza ? `#${trat.pieza}` : '-')}</td>
-                      <td>{trat.numeroSesiones || 0}</td>
-                      <td className="fw-semibold">{formatCurrency(trat.precioFinal || trat.precio)}</td>
-                      <td>{renderEstadoBadge(trat.estado)}</td>
-                      <td style={{ minWidth: 120 }}>
-                        <div className="d-flex align-items-center gap-2">
-                          <div className="progress flex-grow-1" style={{ height: '8px' }}>
-                            <div
-                              className="progress-bar"
-                              role="progressbar"
-                              style={{ width: `${avance}%`, backgroundColor: avance === 100 ? '#4CAF50' : '#0D6EFD' }}
-                              aria-valuenow={avance}
-                              aria-valuemin={0}
-                              aria-valuemax={100}
-                            ></div>
-                          </div>
-                          <small className="text-muted fw-semibold">{avance}%</small>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="d-flex gap-1 justify-content-center">
-                          <button
-                            className="btn btn-sm btn-outline-info"
-                            title="Ver detalle"
-                            onClick={() => setViewTratamiento(trat)}
-                          >
-                            <i className="bi bi-eye"></i>
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-success"
-                            title="Editar"
-                            onClick={() => navigate(`/tratamientos/${trat.id}/editar`)}
-                          >
-                            <i className="bi bi-pencil"></i>
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-warning"
-                            title="Cambiar Estado"
-                            onClick={() => {
-                              setChangeEstadoId(trat.id);
-                              setChangeEstadoValue(trat.estado || '');
-                            }}
-                          >
-                            <i className="bi bi-arrow-repeat"></i>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+        <div className="px-5 py-3 border-b border-slate-700/60 flex items-center justify-between text-xs text-slate-400"><span>{totalElements > 0 ? `Mostrando ${page * PAGE_SIZE + 1}-${Math.min((page + 1) * PAGE_SIZE, totalElements)} de ${totalElements}` : 'Sin resultados'}</span><span className="rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 px-3 py-1 font-bold">Modulo clinico</span></div>
+
+        {loading ? <Loading text="Cargando tratamientos..." /> : tratamientos.length === 0 ? <EmptyState clear={() => { setSearchPaciente(''); setFilterEstado(''); }} hasFilter={Boolean(searchPaciente || filterEstado)} /> : (
+          <div className="overflow-x-auto"><table className="w-full text-left border-collapse"><thead className="bg-slate-800/80 border-b border-slate-700/60"><tr>{['Paciente', 'Tratamiento', 'Pieza', 'Sesiones', 'Precio', 'Estado', 'Avance', 'Acciones'].map((h) => <th key={h} className={`px-6 py-3.5 text-xs font-['Geist'] font-bold text-slate-400 uppercase tracking-wider ${h === 'Acciones' ? 'text-right' : ''}`}>{h}</th>)}</tr></thead><tbody className="divide-y divide-slate-700/40">{tratamientos.map((trat) => {
+            const avance = trat.numeroSesiones > 0 ? Math.round(((trat.sesionesRealizadas || 0) / trat.numeroSesiones) * 100) : 0;
+            return <tr key={trat.id} className="hover:bg-slate-800/50 transition-colors"><td className="px-6 py-4"><span className="block font-bold text-white text-sm">{getPatientName(trat)}</span><span className="block text-xs text-slate-400">Tratamiento #{trat.id}</span></td><td className="px-6 py-4 text-sm font-semibold text-white max-w-[240px] truncate">{trat.nombre || trat.descripcion || '-'}</td><td className="px-6 py-4 text-xs text-slate-400">{trat.piezaDental || trat.pieza || '-'}</td><td className="px-6 py-4 text-xs text-slate-300">{trat.sesionesRealizadas || 0}/{trat.numeroSesiones || 0}</td><td className="px-6 py-4 text-sm font-bold text-blue-400">{formatCurrency(trat.precioFinal || trat.precio || trat.costoTotal || 0)}</td><td className="px-6 py-4"><StatusBadge estado={trat.estado} /></td><td className="px-6 py-4 min-w-[150px]"><div className="h-2 rounded-full bg-slate-900 overflow-hidden"><div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(avance, 100)}%` }} /></div><span className="text-[10px] text-slate-500 font-bold">{avance}%</span></td><td className="px-6 py-4"><div className="flex justify-end gap-1.5"><IconButton icon="visibility" color="text-sky-400" onClick={() => setViewTratamiento(trat)} /><IconButton icon="edit" color="text-emerald-400" onClick={() => navigate(`/tratamientos/${trat.id}/editar`)} /><IconButton icon="sync_alt" color="text-amber-400" onClick={() => { setChangeEstadoId(trat.id); setChangeEstadoValue(trat.estado || 'PLANIFICADO'); }} /></div></td></tr>;
+          })}</tbody></table></div>
         )}
+        {renderPagination()}
+      </section>
 
-        {!loading && renderPagination()}
-      </div>
-
-      {viewTratamiento && (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  <i className="bi bi-info-circle-fill text-primary me-2"></i>Detalle del Tratamiento
-                </h5>
-                <button type="button" className="btn-close" onClick={() => setViewTratamiento(null)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="row g-3">
-                  <div className="col-6">
-                    <small className="text-muted d-block">Paciente</small>
-                    <strong>
-                      {viewTratamiento.paciente
-                        ? `${viewTratamiento.paciente.nombres || ''} ${viewTratamiento.paciente.apellidos || ''}`.trim()
-                        : '-'}
-                    </strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Nombre</small>
-                    <strong>{viewTratamiento.nombre || '-'}</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Pieza Dental</small>
-                    <strong>{viewTratamiento.piezaDental || '-'}</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Odontólogo</small>
-                    <strong>
-                      {viewTratamiento.odontologo
-                        ? `${viewTratamiento.odontologo.nombre || viewTratamiento.odontologo.nombres || ''} ${viewTratamiento.odontologo.apellidos || ''}`.trim()
-                        : '-'}
-                    </strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Sesiones</small>
-                    <strong>{viewTratamiento.numeroSesiones || 0} ({viewTratamiento.sesionesRealizadas || 0} realizadas)</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Precio Final</small>
-                    <strong className="text-success">{formatCurrency(viewTratamiento.precioFinal || viewTratamiento.precio)}</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Estado</small>
-                    <div>{renderEstadoBadge(viewTratamiento.estado)}</div>
-                  </div>
-                  <div className="col-12">
-                    <small className="text-muted d-block">Descripción</small>
-                    <strong>{viewTratamiento.descripcion || 'Sin descripción'}</strong>
-                  </div>
-                  {viewTratamiento.observaciones && (
-                    <div className="col-12">
-                      <small className="text-muted d-block">Observaciones</small>
-                      <strong>{viewTratamiento.observaciones}</strong>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setViewTratamiento(null)}>Cerrar</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {changeEstadoId && (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  <i className="bi bi-arrow-repeat text-warning me-2"></i>Cambiar Estado del Tratamiento
-                </h5>
-                <button type="button" className="btn-close" onClick={() => !changeEstadoLoading && setChangeEstadoId(null)}></button>
-              </div>
-              <div className="modal-body">
-                <label className="form-label">Nuevo Estado <span className="text-danger">*</span></label>
-                <select
-                  className="form-select"
-                  value={changeEstadoValue}
-                  onChange={(e) => setChangeEstadoValue(e.target.value)}
-                  disabled={changeEstadoLoading}
-                >
-                  <option value="">Seleccionar...</option>
-                  {ESTADOS.filter(Boolean).map((est) => (
-                    <option key={est} value={est}>{est}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="modal-footer">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setChangeEstadoId(null)}
-                  disabled={changeEstadoLoading}
-                >
-                  Cancelar
-                </button>
-                <button
-                  className="btn btn-dental-primary d-inline-flex align-items-center gap-2"
-                  onClick={handleChangeEstado}
-                  disabled={changeEstadoLoading || !changeEstadoValue}
-                >
-                  {changeEstadoLoading && (
-                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                  )}
-                  {changeEstadoLoading ? 'Cambiando...' : 'Cambiar Estado'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {viewTratamiento && <ViewModal tratamiento={viewTratamiento} onClose={() => setViewTratamiento(null)} />}
+      {changeEstadoId && <EstadoModal value={changeEstadoValue} onChange={setChangeEstadoValue} onClose={() => setChangeEstadoId(null)} onConfirm={handleChangeEstado} loading={changeEstadoLoading} />}
     </div>
   );
 };
+
+const StatCard = ({ icon, label, value, color }) => {
+  const map = { blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20', amber: 'bg-amber-500/10 text-amber-400 border-amber-500/20', emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', purple: 'bg-purple-500/10 text-purple-400 border-purple-500/20' };
+  return <div className="rounded-2xl border border-slate-700/50 bg-[#1E293B] p-5 flex items-center gap-4 shadow-xl shadow-black/10"><div className={`h-12 w-12 rounded-2xl border flex items-center justify-center ${map[color]}`}><span className="material-symbols-outlined">{icon}</span></div><div><p className="m-0 text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p><p className="m-0 font-['Geist'] text-2xl font-black text-white">{value}</p></div></div>;
+};
+const StatusBadge = ({ estado }) => <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${STATUS[estado] || 'bg-slate-500/10 text-slate-400 border-slate-500/30'}`}>{estado || '-'}</span>;
+const IconButton = ({ icon, color, onClick }) => <button type="button" onClick={onClick} className={`p-2 rounded-xl ${color} hover:bg-slate-700/70`}><span className="material-symbols-outlined text-lg">{icon}</span></button>;
+const Loading = ({ text }) => <div className="py-24 text-center text-slate-500"><span className="material-symbols-outlined text-5xl text-blue-400 animate-spin">progress_activity</span><p className="mt-3 text-sm">{text}</p></div>;
+const EmptyState = ({ hasFilter, clear }) => <div className="py-24 text-center text-slate-500"><div className="mx-auto w-20 h-20 rounded-3xl border border-slate-700/60 bg-slate-800/70 flex items-center justify-center"><span className="material-symbols-outlined text-5xl text-slate-500">ecg_heart</span></div><p className="mt-5 text-lg font-semibold text-slate-300">{hasFilter ? 'No se encontraron tratamientos con esos criterios' : 'No hay tratamientos registrados'}</p><div className="mt-4 flex justify-center gap-2">{hasFilter && <button className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-700" onClick={clear}>Limpiar filtros</button>}<Link to="/tratamientos/nuevo" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500 no-underline">Crear primer tratamiento</Link></div></div>;
+const BaseModal = ({ title, children, onClose }) => <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"><div className="w-full max-w-2xl rounded-3xl border border-slate-700/60 bg-[#1E293B] p-6 shadow-2xl text-slate-300"><div className="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-4 mb-5"><h3 className="font-['Geist'] text-xl font-bold text-white m-0">{title}</h3><button onClick={onClose} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button></div>{children}</div></div>;
+const Info = ({ label, value }) => <div className="rounded-2xl border border-slate-700/60 bg-slate-800/70 p-3"><p className="m-0 text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p><p className="m-0 mt-1 font-semibold text-white">{value}</p></div>;
+const ViewModal = ({ tratamiento, onClose }) => <BaseModal title="Detalle de tratamiento" onClose={onClose}><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><Info label="Paciente" value={getPatientName(tratamiento)} /><Info label="Tratamiento" value={tratamiento.nombre || tratamiento.descripcion || '-'} /><Info label="Pieza" value={tratamiento.piezaDental || tratamiento.pieza || '-'} /><Info label="Sesiones" value={`${tratamiento.sesionesRealizadas || 0}/${tratamiento.numeroSesiones || 0}`} /><Info label="Precio" value={formatCurrency(tratamiento.precioFinal || tratamiento.precio || tratamiento.costoTotal || 0)} /><Info label="Estado" value={tratamiento.estado || '-'} /></div><div className="flex justify-end mt-6"><button onClick={onClose} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-700">Cerrar</button></div></BaseModal>;
+const EstadoModal = ({ value, onChange, onClose, onConfirm, loading }) => <BaseModal title="Cambiar estado" onClose={onClose}><label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Nuevo estado</label><select value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm text-white focus:border-blue-500">{ESTADOS.filter(Boolean).map((estado) => <option key={estado} value={estado}>{estado}</option>)}</select><div className="flex justify-end gap-2 mt-5"><button onClick={onClose} disabled={loading} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-700">Cancelar</button><button onClick={onConfirm} disabled={loading} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500 disabled:opacity-60">{loading ? 'Guardando...' : 'Guardar'}</button></div></BaseModal>;
 
 export default Tratamientos;

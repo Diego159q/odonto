@@ -16,6 +16,90 @@ body {
   color: #CBD5E1;
 }
 
+:root[data-theme='light'] body {
+  background: #F4F7FB;
+  color: #1E293B;
+}
+
+:root[data-theme='light'] .app-shell {
+  background: radial-gradient(circle at top right, rgba(37, 99, 235, 0.10), transparent 32%), #F4F7FB !important;
+}
+
+:root[data-theme='light'] .bg-\[\#0F172A\],
+:root[data-theme='light'] .bg-slate-950,
+:root[data-theme='light'] .bg-slate-950\/70,
+:root[data-theme='light'] .bg-slate-900,
+:root[data-theme='light'] .bg-slate-900\/40,
+:root[data-theme='light'] .bg-slate-900\/50,
+:root[data-theme='light'] .bg-slate-900\/60,
+:root[data-theme='light'] .bg-slate-900\/80 {
+  background-color: #F8FAFC !important;
+}
+
+:root[data-theme='light'] .bg-\[\#1E293B\],
+:root[data-theme='light'] .bg-\[\#1E293B\]\/95,
+:root[data-theme='light'] .bg-slate-800,
+:root[data-theme='light'] .bg-slate-800\/40,
+:root[data-theme='light'] .bg-slate-800\/50,
+:root[data-theme='light'] .bg-slate-800\/60,
+:root[data-theme='light'] .bg-slate-800\/70,
+:root[data-theme='light'] .bg-slate-800\/80,
+:root[data-theme='light'] .bg-slate-800\/90 {
+  background-color: #FFFFFF !important;
+}
+
+:root[data-theme='light'] .border-slate-700,
+:root[data-theme='light'] .border-slate-700\/40,
+:root[data-theme='light'] .border-slate-700\/50,
+:root[data-theme='light'] .border-slate-700\/60,
+:root[data-theme='light'] .border-slate-600,
+:root[data-theme='light'] .border-slate-600\/50 {
+  border-color: #D8E0EA !important;
+}
+
+:root[data-theme='light'] .text-white,
+:root[data-theme='light'] .text-slate-200,
+:root[data-theme='light'] .text-slate-300 {
+  color: #172033 !important;
+}
+
+:root[data-theme='light'] .text-slate-400,
+:root[data-theme='light'] .text-slate-500 {
+  color: #64748B !important;
+}
+
+:root[data-theme='light'] .shadow-black\/10,
+:root[data-theme='light'] .shadow-black\/20,
+:root[data-theme='light'] .shadow-black\/30 {
+  --tw-shadow-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+:root[data-theme='light'] .card,
+:root[data-theme='light'] .table-container,
+:root[data-theme='light'] .form-container,
+:root[data-theme='light'] .filter-section,
+:root[data-theme='light'] .chart-container,
+:root[data-theme='light'] .odontograma-container,
+:root[data-theme='light'] .modal-content {
+  background: #FFFFFF !important;
+  color: #1E293B !important;
+  border-color: #D8E0EA !important;
+}
+
+:root[data-theme='light'] .form-control,
+:root[data-theme='light'] .form-select,
+:root[data-theme='light'] input,
+:root[data-theme='light'] select,
+:root[data-theme='light'] textarea {
+  background-color: #F8FAFC !important;
+  border-color: #CBD5E1 !important;
+  color: #172033 !important;
+}
+
+:root[data-theme='light'] .app-icon-button:hover {
+  background: #EEF4FF !important;
+}
+
 #root { min-height: 100vh; }
 
 .app-header-title {

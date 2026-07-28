@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-const Header = ({ onMenuClick }) => {
+const Header = ({ onMenuClick, theme, onToggleTheme }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -47,8 +47,16 @@ const Header = ({ onMenuClick }) => {
         </button>
         <button
           type="button"
+          onClick={onToggleTheme}
+          className="p-2 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-colors app-icon-button"
+          title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+        >
+          <span className="material-symbols-outlined text-[22px]">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
+        </button>
+        <button
+          type="button"
           onClick={() => navigate('/configuracion')}
-          className="p-2 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+          className="p-2 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-colors app-icon-button"
         >
           <span className="material-symbols-outlined text-[22px]">settings</span>
         </button>
