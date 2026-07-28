@@ -27,17 +27,17 @@ const Sidebar = ({ isOpen = false, onClose }) => {
   const navigate = useNavigate();
 
   return (
-    <aside className={`fixed left-0 top-0 h-screen w-64 bg-[#1E293B] flex flex-col py-6 px-4 z-50 border-r border-slate-700/50 shadow-2xl shadow-black/30 transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+    <aside className={`fixed left-0 top-0 h-screen w-64 bg-[#1E293B] text-slate-300 flex flex-col py-6 px-4 z-50 border-r border-slate-700/50 shadow-2xl shadow-slate-950/20 transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
       <div className="mb-8 px-2 flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-900/20">
           <span className="material-symbols-outlined text-[26px]">dentistry</span>
         </div>
         <div className="flex flex-col">
           <span className="font-['Geist'] text-2xl font-bold text-white tracking-tight leading-none">
-            DentalCare
+            DentalPro
           </span>
           <span className="font-['Geist'] text-xs text-slate-400 mt-0.5 font-medium">
-            {user?.rol?.toLowerCase() === 'administrador' ? 'Administrador' : user?.rol || 'Gestion Clinica'}
+            Gestion Clinica
           </span>
         </div>
         <button type="button" onClick={onClose} className="ml-auto lg:hidden text-slate-400 hover:text-white">
@@ -47,7 +47,7 @@ const Sidebar = ({ isOpen = false, onClose }) => {
 
       <nav className="flex-1 space-y-1.5 overflow-y-auto custom-scrollbar">
         <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-1">
-          Principal
+          Menu principal
         </div>
         {mainNav.filter(item => hasRole(item.roles)).map(item => (
           <NavLink
@@ -70,7 +70,7 @@ const Sidebar = ({ isOpen = false, onClose }) => {
         {secondaryNav.filter(item => hasRole(item.roles)).length > 0 && (
           <>
             <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-1 pt-4">
-              Más Opciones
+              Operacion
             </div>
             {secondaryNav.filter(item => hasRole(item.roles)).map(item => (
               <NavLink

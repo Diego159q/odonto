@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { dashboardService, citaService, pagoService } from '../services/endpoints';
 import { toast } from 'react-toastify';
 import {
@@ -10,65 +10,45 @@ import {
   Title,
   Tooltip,
   Legend,
-  ArcElement,
-  PointElement,
-  LineElement,
 } from 'chart.js';
-import { Bar, Doughnut, Line } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
 import AiXrayModal from '../components/AiXrayModal';
 import { appointmentReminderMessage, buildWhatsAppUrl, downloadAppointmentIcs, getPatientNameFrom, getPatientPhoneFrom, paymentReminderMessage } from '../utils/noApiAutomation';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const statCards = [
-  { key: 'citasDelDia', label: 'Citas hoy', icon: 'event_available', accent: 'blue', hint: '+ operativo' },
-  { key: 'citasPendientes', label: 'Pendientes', icon: 'pending_actions', accent: 'amber', hint: 'por confirmar' },
-  { key: 'totalPacientes', label: 'Pacientes', icon: 'group', accent: 'emerald', hint: 'base activa' },
-  { key: 'ingresosDelDia', label: 'Cobrado hoy', icon: 'payments', accent: 'purple', hint: 'caja diaria' },
-];
-
-const quickActions = [
-  { to: '/calendario-citas', icon: 'calendar_add_on', label: 'Agendar cita', hint: 'Abrir agenda' },
-  { to: '/pacientes/nuevo', icon: 'person_add', label: 'Nuevo paciente', hint: 'Registrar ficha' },
-  { to: '/pacientes', icon: 'manage_search', label: 'Buscar paciente', hint: 'Ver expediente' },
-  { to: '/pagos', icon: 'point_of_sale', label: 'Registrar pago', hint: 'Control de saldos' },
-];
-
-const accentClasses = {
-  blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  amber: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  purple: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-};
+const normalizeList = (data) => (Array.isArray(data) ? data : data?.content || []);
 
 const formatCurrency = (value) => {
   if (value == null) return 'S/ 0.00';
   return `S/ ${Number(value).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-const getToday = () => {
-  const now = new Date();
-  const offset = now.getTimezoneOffset();
-  return new Date(now.getTime() - offset * 60000).toISOString().slice(0, 10);
+const localDate = (offsetDays = 0) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
 };
 
-const getTomorrow = () => {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const offset = tomorrow.getTimezoneOffset();
-  return new Date(tomorrow.getTime() - offset * 60000).toISOString().slice(0, 10);
+const shortDateParts = (dateStr) => {
+  if (!dateStr) return { month: '--', day: '--' };
+  const date = new Date(`${dateStr}${String(dateStr).includes('T') ? '' : 'T00:00:00'}`);
+  return {
+    month: date.toLocaleDateString('es-PE', { month: 'short' }).replace('.', '').toUpperCase(),
+    day: date.toLocaleDateString('es-PE', { day: '2-digit' }),
+  };
 };
-
-const normalizeList = (data) => (Array.isArray(data) ? data : data?.content || []);
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [citasHoy, setCitasHoy] = useState([]);
   const [citasManana, setCitasManana] = useState([]);
   const [deudas, setDeudas] = useState([]);
-  const [homeLoading, setHomeLoading] = useState(true);
+  const [workLoading, setWorkLoading] = useState(true);
   const [aiOpen, setAiOpen] = useState(false);
 
   useEffect(() => {
@@ -88,24 +68,22 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    const loadHomeWork = async () => {
-      setHomeLoading(true);
-      const today = getToday();
-      const tomorrow = getTomorrow();
+    const loadOperationalData = async () => {
+      setWorkLoading(true);
       try {
-        const [citasRes, citasMananaRes, deudasRes] = await Promise.allSettled([
-          citaService.listar({ fechaDesde: today, fechaHasta: today, page: 0, size: 6 }),
-          citaService.listar({ fechaDesde: tomorrow, fechaHasta: tomorrow, page: 0, size: 6 }),
+        const [todayRes, tomorrowRes, deudasRes] = await Promise.allSettled([
+          citaService.listar({ fechaDesde: localDate(), fechaHasta: localDate(), page: 0, size: 6 }),
+          citaService.listar({ fechaDesde: localDate(1), fechaHasta: localDate(1), page: 0, size: 6 }),
           pagoService.deudasPendientes(),
         ]);
-        if (citasRes.status === 'fulfilled') setCitasHoy(normalizeList(citasRes.value.data));
-        if (citasMananaRes.status === 'fulfilled') setCitasManana(normalizeList(citasMananaRes.value.data));
-        if (deudasRes.status === 'fulfilled') setDeudas(normalizeList(deudasRes.value.data).slice(0, 6));
+        if (todayRes.status === 'fulfilled') setCitasHoy(normalizeList(todayRes.value.data));
+        if (tomorrowRes.status === 'fulfilled') setCitasManana(normalizeList(tomorrowRes.value.data));
+        if (deudasRes.status === 'fulfilled') setDeudas(normalizeList(deudasRes.value.data).slice(0, 5));
       } finally {
-        setHomeLoading(false);
+        setWorkLoading(false);
       }
     };
-    loadHomeWork();
+    loadOperationalData();
   }, []);
 
   if (loading) {
@@ -135,48 +113,52 @@ const Dashboard = () => {
 
   const d = data || {};
   const ingresosMensuales = d.ingresosMensuales || [];
-  const citasAtendidas = d.citasAtendidas ?? 0;
-  const citasCanceladas = d.citasCanceladas ?? 0;
-  const pacientesPorMes = d.pacientesPorMes || [];
-  const getValue = (key) => (key.startsWith('ingresos') ? formatCurrency(d[key]) : d[key] ?? 0);
-
-  const chartText = '#CBD5E1';
-  const chartGrid = 'rgba(148, 163, 184, 0.14)';
+  const chartLabels = ingresosMensuales.length > 0 ? ingresosMensuales.map((item) => item.mes || '') : ['May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct'];
+  const chartValues = ingresosMensuales.length > 0 ? ingresosMensuales.map((item) => item.total || 0) : [0, 0, 0, 0, 0, 0];
+  const chartData = {
+    labels: chartLabels,
+    datasets: [
+      {
+        label: 'Ingresos',
+        data: chartValues,
+        backgroundColor: '#2563EB',
+        borderRadius: 7,
+        barThickness: 18,
+      },
+    ],
+  };
   const chartOptions = {
     responsive: true,
-    plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0F172A', titleColor: '#fff', bodyColor: chartText } },
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { backgroundColor: '#0F172A', titleColor: '#fff', bodyColor: '#CBD5E1' },
+    },
     scales: {
-      y: { beginAtZero: true, grid: { color: chartGrid }, ticks: { color: chartText } },
-      x: { grid: { display: false }, ticks: { color: chartText } },
+      y: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, 0.12)' }, ticks: { color: '#94A3B8' } },
+      x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { weight: 700 } } },
     },
   };
-  const doughnutOptions = {
-    responsive: true,
-    plugins: { legend: { position: 'bottom', labels: { color: chartText, padding: 18, usePointStyle: true } } },
-    cutout: '65%',
-  };
-  const barData = {
-    labels: ingresosMensuales.map((item) => item.mes || ''),
-    datasets: [{ label: 'Ingresos', data: ingresosMensuales.map((item) => item.total || 0), backgroundColor: '#2563EB', borderRadius: 8 }],
-  };
-  const doughnutData = {
-    labels: ['Atendidas', 'Canceladas'],
-    datasets: [{ data: [citasAtendidas, citasCanceladas], backgroundColor: ['#10B981', '#F43F5E'], borderWidth: 0 }],
-  };
-  const lineData = {
-    labels: pacientesPorMes.map((item) => item.mes || ''),
-    datasets: [{ label: 'Pacientes', data: pacientesPorMes.map((item) => item.total || 0), fill: true, backgroundColor: 'rgba(14, 165, 233, 0.13)', borderColor: '#38BDF8', tension: 0.4, pointBackgroundColor: '#38BDF8' }],
-  };
+
+  const statCards = [
+    { label: 'Citas hoy', value: d.citasDelDia ?? citasHoy.length, icon: 'event_available', color: 'blue', badge: '+ operativo', progress: 70 },
+    { label: 'Pendientes', value: d.citasPendientes ?? citasManana.length, icon: 'person_add', color: 'amber', badge: 'Por confirmar', progress: 45 },
+    { label: 'Ingresos mes', value: formatCurrency(d.ingresosDelMes || d.ingresosMes || d.ingresosDelDia || 0), icon: 'payments', color: 'emerald', badge: 'Caja', progress: 82 },
+    { label: 'Pacientes', value: d.totalPacientes ?? 0, icon: 'group', color: 'rose', badge: 'Base activa', progress: 35 },
+  ];
 
   return (
-    <div className="p-8 space-y-8 animate-in text-slate-300">
-      <div className="flex flex-col lg:flex-row justify-between gap-4 lg:items-end">
+    <div className="dashboard-page p-6 lg:p-8 space-y-8 animate-in text-slate-300">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-400">Panel principal</p>
-          <h1 className="font-['Geist'] text-3xl lg:text-[40px] font-bold text-white tracking-tight leading-tight mt-2">Resumen de la clinica</h1>
-          <p className="text-slate-400 mt-1">Indicadores, agenda y alertas operativas en un solo lugar.</p>
+          <h1 className="font-['Geist'] text-3xl lg:text-[40px] font-bold text-slate-950 dashboard-title tracking-tight leading-tight">
+            Resumen de la clinica
+          </h1>
+          <p className="text-slate-500 font-['Inter'] text-base mt-1 dashboard-subtitle">
+            Indicadores, agenda y tareas operativas para hoy.
+          </p>
         </div>
-        <div className="bg-[#1E293B] px-4 py-2.5 rounded-xl flex items-center gap-2.5 border border-slate-700/60">
+        <div className="bg-[#1E293B] px-4 py-2.5 rounded-xl flex items-center gap-2.5 border border-slate-700/60 shadow-xl shadow-slate-950/10">
           <span className="material-symbols-outlined text-blue-400 text-[20px]">calendar_today</span>
           <span className="font-['Geist'] text-sm font-medium text-slate-200">{new Date().toLocaleDateString('es-PE')}</span>
         </div>
@@ -184,125 +166,171 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
         {statCards.map((card) => (
-          <div key={card.key} className="bg-[#1E293B] p-5 rounded-2xl border border-slate-700/50 hover:border-slate-600 hover:-translate-y-1 transition-all shadow-xl shadow-black/10">
-            <div className="flex justify-between items-start mb-3">
-              <div className={`p-2.5 rounded-xl border ${accentClasses[card.accent]}`}>
-                <span className="material-symbols-outlined text-[24px]">{card.icon}</span>
-              </div>
-              <span className="text-xs font-semibold text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full">{card.hint}</span>
-            </div>
-            <p className="text-slate-400 font-['Geist'] text-xs font-semibold uppercase tracking-wider">{card.label}</p>
-            <p className="font-['Geist'] text-3xl font-bold text-white mt-1">{getValue(card.key)}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {quickActions.map((action) => (
-          <Link key={action.to} to={action.to} className="group rounded-2xl border border-slate-700/50 bg-[#1E293B] p-4 text-slate-300 no-underline hover:border-blue-500/50 hover:text-white transition-all">
-            <span className="material-symbols-outlined text-blue-400 text-3xl group-hover:scale-110 transition-transform">{action.icon}</span>
-            <p className="mt-3 mb-1 font-semibold text-white">{action.label}</p>
-            <p className="m-0 text-xs text-slate-400">{action.hint}</p>
-          </Link>
+          <MetricCard key={card.label} {...card} />
         ))}
       </div>
 
       <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 xl:col-span-8 space-y-6">
-          <div className="bg-[#1E293B] p-6 rounded-2xl border border-slate-700/50">
-            <div className="flex justify-between items-center mb-6">
+        <div className="col-span-12 lg:col-span-8 space-y-6">
+          <section className="bg-[#1E293B] p-6 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50">
+            <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
               <div>
-                <h3 className="font-['Geist'] text-xl font-bold text-white">Ingresos mensuales</h3>
-                <p className="text-sm text-slate-400">Evolucion financiera del consultorio.</p>
+                <h3 className="font-['Geist'] text-xl font-bold text-white m-0">Rendimiento mensual</h3>
+                <p className="text-sm text-slate-400 m-0 mt-1">Comparativa de ingresos registrados.</p>
               </div>
+              <span className="bg-slate-800 border border-slate-700 rounded-xl text-xs font-['Geist'] font-medium text-slate-200 py-2 px-3">Ultimos 6 meses</span>
             </div>
-            {ingresosMensuales.length > 0 ? <Bar data={barData} options={chartOptions} /> : <p className="py-12 text-center text-slate-500">No hay datos disponibles</p>}
-          </div>
+            <div className="h-64">
+              {ingresosMensuales.length > 0 ? <Bar data={chartData} options={chartOptions} /> : <EmptyChart />}
+            </div>
+            <div className="mt-4 flex gap-6 items-center text-sm pt-3 border-t border-slate-700/50">
+              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-blue-600" /><span className="text-slate-300 text-xs">Ingresos</span></div>
+              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-sky-400" /><span className="text-slate-300 text-xs">Actividad clinica</span></div>
+            </div>
+          </section>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <WorkCard title="Agenda de hoy" icon="calendar_day" to="/calendario-citas" loading={homeLoading} empty="No hay citas para hoy">
-              {citasHoy.map((cita) => (
-                <ReminderRow key={cita.id} cita={cita} />
-              ))}
-            </WorkCard>
-
-            <WorkCard title="Confirmar manana" icon="mark_chat_unread" to="/citas" loading={homeLoading} empty="No hay citas para confirmar">
-              {citasManana.map((cita) => (
-                <ReminderRow key={cita.id} cita={cita} compact />
-              ))}
-            </WorkCard>
-
-            <WorkCard title="Pagos pendientes" icon="warning" to="/pagos" loading={homeLoading} empty="No hay deudas pendientes">
-              {deudas.map((deuda, index) => (
-                <div key={deuda.id || index} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-800/80 transition-all text-slate-300">
-                  <span className="w-24 font-bold text-amber-400">{formatCurrency(deuda.saldo || deuda.deuda || deuda.montoPendiente || 0)}</span>
-                  <Link to="/pagos" className="min-w-0 flex-1 no-underline"><strong className="block text-white truncate">{getPatientNameFrom(deuda)}</strong><small className="text-slate-400">{deuda.tratamientoNombre || deuda.concepto || 'Saldo pendiente'}</small></Link>
-                  <a href={buildWhatsAppUrl({ phone: getPatientPhoneFrom(deuda), message: paymentReminderMessage(deuda) })} target="_blank" rel="noreferrer" className="shrink-0 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-bold text-emerald-300 no-underline hover:bg-emerald-500/20">WhatsApp</a>
-                </div>
-              ))}
-            </WorkCard>
-          </div>
+          <section className="bg-[#1E293B] p-6 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-['Geist'] text-xl font-bold text-white m-0">Proximas citas</h3>
+              <Link to="/calendario-citas" className="text-blue-400 font-['Geist'] font-medium text-sm hover:underline flex items-center gap-1 no-underline">
+                Ver agenda completa <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </Link>
+            </div>
+            <div className="space-y-3">
+              {workLoading ? <p className="py-8 text-center text-slate-500">Cargando citas...</p> : citasHoy.length === 0 ? <p className="py-8 text-center text-slate-500">No hay citas para hoy.</p> : citasHoy.slice(0, 4).map((cita) => <AppointmentRow key={cita.id} cita={cita} />)}
+            </div>
+          </section>
         </div>
 
-        <div className="col-span-12 xl:col-span-4 space-y-6">
-          <div className="bg-[#1E293B] p-6 rounded-2xl border border-slate-700/50">
-            <h3 className="font-['Geist'] text-xl font-bold text-white mb-4">Atendidas vs canceladas</h3>
-            {(citasAtendidas > 0 || citasCanceladas > 0) ? <Doughnut data={doughnutData} options={doughnutOptions} /> : <p className="py-12 text-center text-slate-500">No hay datos disponibles</p>}
-          </div>
+        <aside className="col-span-12 lg:col-span-4 space-y-6">
+          <section className="bg-[#1E293B] p-6 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-['Geist'] text-xl font-bold text-white m-0">Tareas y alertas</h3>
+              <button onClick={() => navigate('/citas/nueva')} className="material-symbols-outlined text-slate-300 hover:text-white p-1.5 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors">add</button>
+            </div>
 
-          <div className="bg-[#1E293B] p-6 rounded-2xl border border-slate-700/50">
-            <h3 className="font-['Geist'] text-xl font-bold text-white mb-4">Pacientes por mes</h3>
-            {pacientesPorMes.length > 0 ? <Line data={lineData} options={chartOptions} /> : <p className="py-12 text-center text-slate-500">No hay datos disponibles</p>}
-          </div>
+            <div className="space-y-4">
+              {deudas.length > 0 && (
+                <div className="bg-rose-500/10 border border-rose-500/30 p-3.5 rounded-xl flex gap-3 items-start text-rose-200">
+                  <span className="material-symbols-outlined text-rose-400 text-xl mt-0.5">warning</span>
+                  <div className="min-w-0">
+                    <p className="font-['Geist'] text-xs font-bold text-rose-400 m-0">Pagos pendientes</p>
+                    <p className="text-xs text-slate-300 mt-0.5 mb-0">Hay {deudas.length} saldo(s) para seguimiento.</p>
+                    <Link to="/pagos" className="mt-1.5 inline-block text-xs font-bold text-rose-400 underline hover:text-rose-300">Revisar ahora</Link>
+                  </div>
+                </div>
+              )}
 
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 min-h-[180px] p-6 flex flex-col justify-between text-white shadow-xl shadow-blue-900/30">
+              <TaskLine label="Confirmar citas de manana" count={citasManana.length} to="/citas" />
+              <TaskLine label="Enviar recordatorios de pago" count={deudas.length} to="/pagos" />
+              <TaskLine label="Revisar agenda de hoy" count={citasHoy.length} to="/calendario-citas" />
+
+              <div className="mt-6 pt-4 border-t border-slate-700/50">
+                <h4 className="font-['Geist'] text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Ocupacion gabinetes</h4>
+                <Occupancy label="Gabinete 01" value={citasHoy.length > 0 ? 85 : 20} color="blue" />
+                <Occupancy label="Gabinete 02" value={citasManana.length > 0 ? 45 : 10} color="sky" />
+              </div>
+            </div>
+          </section>
+
+          <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 min-h-[198px] p-6 flex flex-col justify-between text-white shadow-2xl shadow-blue-900/30">
             <div className="absolute right-[-20px] top-[-20px] w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="material-symbols-outlined text-blue-200">auto_awesome</span>
-                <span className="text-xs font-bold text-blue-200 uppercase tracking-wider">Nueva funcion IA</span>
+                <span className="text-xs font-['Geist'] font-bold text-blue-200 uppercase tracking-wider">Nueva funcion AI</span>
               </div>
               <h3 className="font-['Geist'] text-xl font-bold leading-snug text-white">Analisis de radiografias</h3>
-              <p className="text-xs text-blue-100 mt-1">Prototipo asistido para deteccion rapida de hallazgos clinicos.</p>
+              <p className="text-xs text-blue-100 mt-1">Diagnostico asistido para deteccion rapida de hallazgos clinicos.</p>
             </div>
-            <button onClick={() => setAiOpen(true)} className="mt-4 bg-white text-blue-900 px-4 py-2.5 rounded-xl font-bold text-xs self-start hover:bg-slate-100 transition-all flex items-center gap-1.5">
+            <button onClick={() => setAiOpen(true)} className="mt-4 bg-white text-blue-900 px-4 py-2.5 rounded-xl font-['Geist'] font-bold text-xs self-start hover:bg-slate-100 active:scale-95 transition-all shadow-md flex items-center gap-1.5">
               Probar ahora <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
-          </div>
-        </div>
+          </section>
+        </aside>
       </div>
+
+      <button onClick={() => navigate('/citas/nueva')} className="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-xl shadow-blue-900/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 group" title="Nueva cita">
+        <span className="material-symbols-outlined text-[32px] group-hover:rotate-90 transition-transform">add</span>
+      </button>
 
       <AiXrayModal isOpen={aiOpen} onClose={() => setAiOpen(false)} />
     </div>
   );
 };
 
-const WorkCard = ({ title, icon, to, loading, empty, children }) => (
-  <div className="bg-[#1E293B] rounded-2xl border border-slate-700/50 overflow-hidden">
-    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700/50">
-      <h3 className="font-['Geist'] text-base font-bold text-white flex items-center gap-2 m-0">
-        <span className="material-symbols-outlined text-blue-400">{icon}</span>
-        {title}
-      </h3>
-      <Link to={to} className="text-xs font-semibold text-blue-400 hover:text-blue-300 no-underline">Ver</Link>
+const MetricCard = ({ label, value, icon, color, badge, progress }) => {
+  const colorMap = {
+    blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    amber: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    rose: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+  };
+  const barMap = { blue: 'bg-blue-500', amber: 'bg-amber-400', emerald: 'bg-emerald-400', rose: 'bg-rose-500' };
+  return (
+    <section className="bg-[#1E293B] p-5 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50 hover:border-slate-600 hover:-translate-y-1 transition-all duration-300 min-h-[180px]">
+      <div className="flex justify-between items-start mb-3">
+        <div className={`p-2.5 rounded-xl border ${colorMap[color]}`}>
+          <span className="material-symbols-outlined text-[24px]">{icon}</span>
+        </div>
+        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${colorMap[color]}`}>{badge}</span>
+      </div>
+      <p className="text-slate-400 font-['Geist'] text-xs font-semibold uppercase tracking-wider m-0">{label}</p>
+      <p className="font-['Geist'] text-3xl font-bold text-white mt-1 mb-0">{value}</p>
+      <div className="mt-4 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+        <div className={`h-full ${barMap[color]} rounded-full`} style={{ width: `${progress}%` }} />
+      </div>
+    </section>
+  );
+};
+
+const EmptyChart = () => (
+  <div className="h-full flex items-end justify-around gap-4 relative pt-4">
+    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+      <div className="w-full h-px bg-slate-600" /><div className="w-full h-px bg-slate-600" /><div className="w-full h-px bg-slate-600" /><div className="w-full h-px bg-slate-600" />
     </div>
-    <div className="p-2 min-h-[170px]">
-      {loading ? <p className="py-10 text-center text-slate-500">Cargando...</p> : React.Children.count(children) === 0 ? <p className="py-10 text-center text-slate-500">{empty}</p> : children}
-    </div>
+    {[
+      ['May', '40%', '60%'], ['Jun', '55%', '75%'], ['Jul', '35%', '45%'], ['Ago', '70%', '90%'], ['Sep', '60%', '80%'], ['Oct', '45%', '65%'],
+    ].map(([month, h1, h2]) => (
+      <div key={month} className="flex flex-col items-center gap-1.5 w-full max-w-[44px] h-full justify-end z-10">
+        <div className="w-full flex items-end gap-1.5 h-full"><div className="w-1/2 bg-sky-400 rounded-t-md" style={{ height: h1 }} /><div className="w-1/2 bg-blue-600 rounded-t-md" style={{ height: h2 }} /></div>
+        <span className="text-[11px] font-bold text-slate-400 uppercase">{month}</span>
+      </div>
+    ))}
   </div>
 );
 
-const ReminderRow = ({ cita, compact }) => (
-  <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-800/80 transition-all text-slate-300">
-    <span className="w-14 shrink-0 text-center font-bold text-blue-400">{cita.horaInicio || cita.hora || '--:--'}</span>
-    <Link to="/citas" className="min-w-0 flex-1 no-underline">
-      <strong className="block text-white truncate">{getPatientNameFrom(cita)}</strong>
-      <small className="text-slate-400">{compact ? cita.estado || 'Por confirmar' : cita.motivo || cita.estado || 'Cita programada'}</small>
-    </Link>
-    <div className="flex shrink-0 gap-1">
+const AppointmentRow = ({ cita }) => {
+  const date = shortDateParts(cita.fecha);
+  return (
+    <div className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-800/80 transition-all group border border-transparent hover:border-slate-700">
+      <div className="w-12 h-12 flex flex-col items-center justify-center bg-slate-800 text-slate-300 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
+        <span className="text-[10px] font-bold uppercase">{date.month}</span>
+        <span className="font-bold text-lg leading-none">{date.day}</span>
+      </div>
+      <Link to="/citas" className="flex-grow min-w-0 no-underline">
+        <p className="font-['Geist'] font-semibold text-white text-sm m-0 truncate">{getPatientNameFrom(cita)}</p>
+        <p className="text-xs text-slate-400 m-0">{cita.motivo || 'Cita odontologica'} - {cita.horaInicio || cita.hora || '--:--'}</p>
+      </Link>
+      <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/30">{cita.estado || 'Pendiente'}</span>
       <a href={buildWhatsAppUrl({ phone: getPatientPhoneFrom(cita), message: appointmentReminderMessage(cita) })} target="_blank" rel="noreferrer" className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-bold text-emerald-300 no-underline hover:bg-emerald-500/20">WA</a>
-      <button type="button" onClick={() => downloadAppointmentIcs(cita)} className="rounded-lg border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-[11px] font-bold text-purple-300 hover:bg-purple-500/20">ICS</button>
+      <button type="button" onClick={() => downloadAppointmentIcs(cita)} className="material-symbols-outlined text-slate-400 hover:text-white p-1">event_upcoming</button>
     </div>
+  );
+};
+
+const TaskLine = ({ label, count, to }) => (
+  <Link to={to} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-800/60 cursor-pointer transition-all border border-transparent hover:border-slate-700/50 no-underline">
+    <span className={`w-4 h-4 rounded border ${count > 0 ? 'bg-blue-600 border-blue-500' : 'border-slate-600 bg-slate-800'}`} />
+    <span className="text-sm text-slate-200 flex-1">{label}</span>
+    <span className="text-xs font-bold text-blue-400">{count}</span>
+  </Link>
+);
+
+const Occupancy = ({ label, value, color }) => (
+  <div className="mb-3">
+    <div className="flex justify-between text-xs mb-1"><span className="text-slate-300 font-medium">{label}</span><span className={`font-bold ${color === 'blue' ? 'text-blue-400' : 'text-sky-400'}`}>{value}%</span></div>
+    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className={`h-full rounded-full ${color === 'blue' ? 'bg-blue-500' : 'bg-sky-400'}`} style={{ width: `${value}%` }} /></div>
   </div>
 );
 
