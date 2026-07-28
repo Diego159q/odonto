@@ -49,7 +49,7 @@ const Header = ({ onMenuClick, theme, onToggleTheme }) => {
         </button>
         <Link
           to="/notificaciones"
-          className="relative p-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-colors border border-transparent hover:border-slate-700"
+          className="relative p-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-colors border border-transparent hover:border-slate-700 no-underline"
         >
           <span className="material-symbols-outlined text-[22px]">notifications</span>
           <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-rose-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center">0</span>

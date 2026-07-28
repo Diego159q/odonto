@@ -55,7 +55,7 @@ const Sidebar = ({ isOpen = false, onClose }) => {
             to={item.path}
             onClick={onClose}
             className={({ isActive }) =>
-              `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 text-sm ${
+              `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 text-sm no-underline ${
                 isActive
                   ? 'bg-slate-800 text-white font-semibold border-l-4 border-blue-500 shadow-sm'
                   : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
@@ -78,7 +78,7 @@ const Sidebar = ({ isOpen = false, onClose }) => {
                 to={item.path}
                 onClick={onClose}
                 className={({ isActive }) =>
-                  `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 text-sm ${
+                  `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 text-sm no-underline ${
                     isActive
                       ? 'bg-slate-800 text-white font-semibold border-l-4 border-blue-500 shadow-sm'
                       : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
@@ -103,7 +103,7 @@ const Sidebar = ({ isOpen = false, onClose }) => {
         </button>
         <button
           onClick={() => { navigate('/notificaciones'); onClose?.(); }}
-          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors text-sm"
+          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors text-sm no-underline"
         >
           <span className="material-symbols-outlined text-[20px]">notifications</span>
           <span>Notificaciones</span>
