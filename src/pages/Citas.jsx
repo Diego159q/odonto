@@ -1,19 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { citaService } from '../services/endpoints';
 import { toast } from 'react-toastify';
 
 const PAGE_SIZE = 10;
-
 const ESTADOS = ['', 'PENDIENTE', 'CONFIRMADA', 'ATENDIDA', 'CANCELADA', 'REPROGRAMADA', 'NO_ASISTIO'];
 
-const ESTADO_COLORS = {
-  PENDIENTE: { bg: '#FFF3E0', color: '#E65100' },
-  CONFIRMADA: { bg: '#E3F2FD', color: '#1565C0' },
-  ATENDIDA: { bg: '#E8F5E9', color: '#2E7D32' },
-  CANCELADA: { bg: '#FFEBEE', color: '#C62828' },
-  REPROGRAMADA: { bg: '#F3E5F5', color: '#6A1B9A' },
-  NO_ASISTIO: { bg: '#FFF8E1', color: '#F57F17' },
+const STATUS = {
+  PENDIENTE: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+  CONFIRMADA: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+  ATENDIDA: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  CANCELADA: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+  REPROGRAMADA: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+  NO_ASISTIO: 'bg-slate-500/10 text-slate-400 border-slate-500/30',
 };
 
 const ACTIONS_BY_ESTADO = {
@@ -25,6 +24,16 @@ const ACTIONS_BY_ESTADO = {
   NO_ASISTIO: ['ver', 'reprogramar'],
 };
 
+const getPacienteName = (cita) => {
+  if (cita.paciente) return `${cita.paciente.nombres || ''} ${cita.paciente.apellidos || ''}`.trim() || 'Paciente';
+  return cita.pacienteNombre || cita.paciente || 'Paciente';
+};
+
+const getOdontologoName = (cita) => {
+  if (cita.odontologo) return `${cita.odontologo.nombre || cita.odontologo.nombres || ''} ${cita.odontologo.apellidos || ''}`.trim();
+  return cita.odontologoNombre || '-';
+};
+
 const Citas = () => {
   const navigate = useNavigate();
   const [citas, setCitas] = useState([]);
@@ -32,14 +41,7 @@ const Citas = () => {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
-
-  const [filtros, setFiltros] = useState({
-    fechaDesde: '',
-    fechaHasta: '',
-    estado: '',
-    searchPaciente: '',
-  });
-
+  const [filtros, setFiltros] = useState({ fechaDesde: '', fechaHasta: '', estado: '', searchPaciente: '' });
   const [viewCita, setViewCita] = useState(null);
   const [cancelCita, setCancelCita] = useState(null);
   const [cancelMotivo, setCancelMotivo] = useState('');
@@ -72,8 +74,7 @@ const Citas = () => {
         setTotalElements(0);
       }
     } catch (error) {
-      const msg = error.response?.data?.message || 'Error al cargar citas';
-      toast.error(msg);
+      toast.error(error.response?.data?.message || 'Error al cargar citas');
       setCitas([]);
     } finally {
       setLoading(false);
@@ -93,9 +94,7 @@ const Citas = () => {
     setFiltros((prev) => ({ ...prev, [name]: value }));
   };
 
-  const clearFilters = () => {
-    setFiltros({ fechaDesde: '', fechaHasta: '', estado: '', searchPaciente: '' });
-  };
+  const clearFilters = () => setFiltros({ fechaDesde: '', fechaHasta: '', estado: '', searchPaciente: '' });
 
   const handleConfirmar = async (id) => {
     try {
@@ -107,14 +106,9 @@ const Citas = () => {
     }
   };
 
-  const openCancelModal = (cita) => {
-    setCancelCita(cita);
-    setCancelMotivo('');
-  };
-
   const handleCancelar = async () => {
     if (!cancelMotivo.trim()) {
-      toast.warning('Debe indicar un motivo de cancelación');
+      toast.warning('Debe indicar un motivo de cancelacion');
       return;
     }
     setCancelLoading(true);
@@ -133,11 +127,7 @@ const Citas = () => {
 
   const openReprogramModal = (cita) => {
     setReprogramCita(cita);
-    setReprogramData({
-      nuevaFecha: cita.fecha || '',
-      nuevaHoraInicio: cita.horaInicio || '',
-      nuevaHoraFin: cita.horaFin || '',
-    });
+    setReprogramData({ nuevaFecha: cita.fecha || '', nuevaHoraInicio: cita.horaInicio || '', nuevaHoraFin: cita.horaFin || '' });
   };
 
   const handleReprogramar = async () => {
@@ -151,11 +141,7 @@ const Citas = () => {
     }
     setReprogramLoading(true);
     try {
-      await citaService.reprogramar(reprogramCita.id, {
-        nuevaFecha: reprogramData.nuevaFecha,
-        nuevaHoraInicio: reprogramData.nuevaHoraInicio,
-        nuevaHoraFin: reprogramData.nuevaHoraFin,
-      });
+      await citaService.reprogramar(reprogramCita.id, reprogramData);
       toast.success('Cita reprogramada exitosamente');
       setReprogramCita(null);
       fetchCitas();
@@ -168,450 +154,165 @@ const Citas = () => {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    const d = new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00'));
-    return d.toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' });
-  };
-
-  const formatHour = (hour) => hour || '-';
-
-  const renderEstadoBadge = (estado) => {
-    const c = ESTADO_COLORS[estado] || ESTADO_COLORS.PENDIENTE;
-    return (
-      <span className="badge badge-status" style={{ backgroundColor: c.bg, color: c.color, border: `1px solid ${c.color}20` }}>
-        {estado || 'PENDIENTE'}
-      </span>
-    );
+    return new Date(`${dateStr}${dateStr.includes('T') ? '' : 'T00:00:00'}`).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
   const renderPagination = () => {
     if (totalPages <= 1) return null;
-    const pages = [];
-    const maxVisible = 5;
-    let start = Math.max(0, page - Math.floor(maxVisible / 2));
-    const end = Math.min(totalPages, start + maxVisible);
-    if (end - start < maxVisible) {
-      start = Math.max(0, end - maxVisible);
-    }
-    for (let i = start; i < end; i++) {
-      pages.push(i);
-    }
+    const start = Math.max(0, Math.min(page - 2, totalPages - 5));
+    const pages = Array.from({ length: Math.min(5, totalPages) }, (_, index) => start + index);
     return (
-      <nav>
-        <ul className="pagination pagination-sm justify-content-center mb-0 py-3">
-          <li className={`page-item ${page === 0 ? 'disabled' : ''}`}>
-            <button className="page-link" onClick={() => setPage(page - 1)} disabled={page === 0}>
-              <i className="bi bi-chevron-left"></i>
-            </button>
-          </li>
-          {start > 0 && (
-            <>
-              <li className="page-item">
-                <button className="page-link" onClick={() => setPage(0)}>1</button>
-              </li>
-              {start > 1 && <li className="page-item disabled"><span className="page-link">...</span></li>}
-            </>
-          )}
-          {pages.map((p) => (
-            <li key={p} className={`page-item ${p === page ? 'active' : ''}`}>
-              <button className="page-link" onClick={() => setPage(p)}>{p + 1}</button>
-            </li>
-          ))}
-          {end < totalPages && (
-            <>
-              {end < totalPages - 1 && <li className="page-item disabled"><span className="page-link">...</span></li>}
-              <li className="page-item">
-                <button className="page-link" onClick={() => setPage(totalPages - 1)}>{totalPages}</button>
-              </li>
-            </>
-          )}
-          <li className={`page-item ${page === totalPages - 1 ? 'disabled' : ''}`}>
-            <button className="page-link" onClick={() => setPage(page + 1)} disabled={page === totalPages - 1}>
-              <i className="bi bi-chevron-right"></i>
-            </button>
-          </li>
-        </ul>
-      </nav>
+      <div className="flex items-center justify-center gap-1.5 p-4 border-t border-slate-700/60 bg-slate-800/40">
+        <button disabled={page === 0} onClick={() => setPage(page - 1)} className="w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-700 disabled:opacity-30"><span className="material-symbols-outlined text-sm">chevron_left</span></button>
+        {pages.map((p) => <button key={p} onClick={() => setPage(p)} className={`w-9 h-9 rounded-lg text-xs font-bold ${p === page ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}>{p + 1}</button>)}
+        <button disabled={page === totalPages - 1} onClick={() => setPage(page + 1)} className="w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-700 disabled:opacity-30"><span className="material-symbols-outlined text-sm">chevron_right</span></button>
+      </div>
     );
   };
 
   const renderActions = (cita) => {
     const actions = ACTIONS_BY_ESTADO[cita.estado] || ['ver'];
     return (
-      <div className="d-flex gap-1 justify-content-center flex-nowrap">
-        {actions.includes('ver') && (
-          <button className="btn btn-sm btn-outline-info" title="Ver detalles" onClick={() => setViewCita(cita)}>
-            <i className="bi bi-eye"></i>
-          </button>
-        )}
-        {actions.includes('editar') && (
-          <button className="btn btn-sm btn-outline-success" title="Editar" onClick={() => navigate(`/citas/${cita.id}/editar`)}>
-            <i className="bi bi-pencil"></i>
-          </button>
-        )}
-        {actions.includes('confirmar') && (
-          <button className="btn btn-sm btn-outline-primary" title="Confirmar" onClick={() => handleConfirmar(cita.id)}>
-            <i className="bi bi-check-lg"></i>
-          </button>
-        )}
-        {actions.includes('cancelar') && (
-          <button className="btn btn-sm btn-outline-danger" title="Cancelar" onClick={() => openCancelModal(cita)}>
-            <i className="bi bi-x-lg"></i>
-          </button>
-        )}
-        {actions.includes('reprogramar') && (
-          <button className="btn btn-sm btn-outline-warning" title="Reprogramar" onClick={() => openReprogramModal(cita)}>
-            <i className="bi bi-calendar-plus"></i>
-          </button>
-        )}
+      <div className="flex items-center justify-end gap-1.5">
+        {actions.includes('ver') && <IconButton icon="visibility" color="text-sky-400" onClick={() => setViewCita(cita)} />}
+        {actions.includes('editar') && <IconButton icon="edit" color="text-emerald-400" onClick={() => navigate(`/citas/${cita.id}/editar`)} />}
+        {actions.includes('confirmar') && <IconButton icon="check" color="text-blue-400" onClick={() => handleConfirmar(cita.id)} />}
+        {actions.includes('cancelar') && <IconButton icon="close" color="text-rose-400" onClick={() => { setCancelCita(cita); setCancelMotivo(''); }} />}
+        {actions.includes('reprogramar') && <IconButton icon="event_repeat" color="text-amber-400" onClick={() => openReprogramModal(cita)} />}
       </div>
     );
   };
 
   return (
-    <div className="fade-in">
-      <div className="page-header">
-        <h2 className="page-title">
-          <i className="bi bi-calendar-check-fill me-2 text-primary"></i>Citas
-        </h2>
-        <Link to="/citas/nueva" className="btn btn-dental-primary d-inline-flex align-items-center gap-2">
-          <i className="bi bi-plus-lg"></i> Nueva Cita
-        </Link>
-      </div>
-
-      <div className="filter-section">
-        <div className="filter-row">
-          <div className="filter-group">
-            <label htmlFor="fechaDesde"><i className="bi bi-calendar-range me-1"></i>Fecha Desde</label>
-            <input
-              id="fechaDesde"
-              type="date"
-              className="form-control"
-              name="fechaDesde"
-              value={filtros.fechaDesde}
-              onChange={handleFilterChange}
-            />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="fechaHasta"><i className="bi bi-calendar-range me-1"></i>Fecha Hasta</label>
-            <input
-              id="fechaHasta"
-              type="date"
-              className="form-control"
-              name="fechaHasta"
-              value={filtros.fechaHasta}
-              onChange={handleFilterChange}
-            />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="estado"><i className="bi bi-funnel me-1"></i>Estado</label>
-            <select
-              id="estado"
-              className="form-select"
-              name="estado"
-              value={filtros.estado}
-              onChange={handleFilterChange}
-            >
-              <option value="">Todos</option>
-              {ESTADOS.filter(Boolean).map((est) => (
-                <option key={est} value={est}>{est}</option>
-              ))}
-            </select>
-          </div>
-          <div className="filter-group">
-            <label htmlFor="searchPaciente"><i className="bi bi-search me-1"></i>Paciente</label>
-            <input
-              id="searchPaciente"
-              type="text"
-              className="form-control"
-              name="searchPaciente"
-              placeholder="Buscar paciente..."
-              value={filtros.searchPaciente}
-              onChange={handleFilterChange}
-            />
-          </div>
-          <div className="filter-group d-flex align-items-end">
-            <button className="btn btn-outline-secondary" onClick={clearFilters} title="Limpiar filtros">
-              <i className="bi bi-eraser"></i>
-            </button>
-          </div>
+    <div className="p-8 space-y-6 animate-in text-slate-300">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-400">Control operativo</p>
+          <h1 className="font-['Geist'] text-3xl font-bold text-white tracking-tight mt-2">Lista de citas</h1>
+          <p className="text-slate-400 text-sm mt-1">Consulta, confirma, cancela o reprograma atenciones.</p>
+        </div>
+        <div className="flex gap-2">
+          <Link to="/calendario-citas" className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-bold text-slate-200 hover:bg-slate-700 no-underline flex items-center gap-2"><span className="material-symbols-outlined text-lg">calendar_month</span>Agenda</Link>
+          <Link to="/citas/nueva" className="bg-blue-600 text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg shadow-blue-900/30 hover:bg-blue-500 no-underline"><span className="material-symbols-outlined text-lg">add</span>Nueva cita</Link>
         </div>
       </div>
 
-      <div className="table-container">
-        <div className="table-header">
-          <span className="text-muted">
-            {totalElements > 0
-              ? `Mostrando ${page * PAGE_SIZE + 1}-${Math.min((page + 1) * PAGE_SIZE, totalElements)} de ${totalElements} citas`
-              : 'Sin resultados'}
-          </span>
-          {totalElements > 0 && (
-            <span className="badge bg-primary">{totalElements} registros</span>
-          )}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <FilterInput label="Desde" type="date" name="fechaDesde" value={filtros.fechaDesde} onChange={handleFilterChange} />
+        <FilterInput label="Hasta" type="date" name="fechaHasta" value={filtros.fechaHasta} onChange={handleFilterChange} />
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Estado</label>
+          <select name="estado" value={filtros.estado} onChange={handleFilterChange} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:border-blue-500">
+            {ESTADOS.map((estado) => <option key={estado || 'all'} value={estado}>{estado || 'Todos'}</option>)}
+          </select>
+        </div>
+        <FilterInput label="Paciente" name="searchPaciente" value={filtros.searchPaciente} onChange={handleFilterChange} placeholder="Nombre o DNI" />
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <button onClick={clearFilters} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700">Limpiar filtros</button>
+        <button onClick={fetchCitas} className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-500">Buscar</button>
+      </div>
+
+      <div className="bg-[#1E293B] rounded-2xl border border-slate-700/50 overflow-hidden shadow-xl shadow-black/10">
+        <div className="px-5 py-3 border-b border-slate-700/60 flex items-center justify-between text-xs text-slate-400 bg-slate-800/40">
+          <span>{totalElements > 0 ? `Mostrando ${page * PAGE_SIZE + 1}-${Math.min((page + 1) * PAGE_SIZE, totalElements)} de ${totalElements}` : 'Sin resultados'}</span>
+          <span className="rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 px-3 py-1 font-bold">{totalElements} registros</span>
         </div>
 
         {loading ? (
-          <div className="loading-container">
-            <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }} role="status">
-              <span className="visually-hidden">Cargando...</span>
-            </div>
-          </div>
+          <div className="py-20 text-center text-slate-500"><span className="material-symbols-outlined text-5xl text-blue-400 animate-spin">progress_activity</span><p className="mt-3 text-sm">Cargando citas...</p></div>
         ) : citas.length === 0 ? (
-          <div className="text-center py-5">
-            <i className="bi bi-calendar-x" style={{ fontSize: '3rem', color: '#ccc' }}></i>
-            <p className="mt-3 text-muted">
-              {filtros.searchPaciente || filtros.estado || filtros.fechaDesde
-                ? 'No se encontraron citas con esos criterios'
-                : 'No hay citas registradas'}
-            </p>
-            {(filtros.searchPaciente || filtros.estado || filtros.fechaDesde) ? (
-              <button className="btn btn-outline-primary" onClick={clearFilters}>
-                Limpiar filtros
-              </button>
-            ) : (
-              <Link to="/citas/nueva" className="btn btn-dental-primary">
-                Crear primera cita
-              </Link>
-            )}
-          </div>
+          <div className="py-20 text-center text-slate-500"><span className="material-symbols-outlined text-6xl text-slate-600">event_busy</span><p className="mt-3">No se encontraron citas.</p></div>
         ) : (
-          <div className="table-responsive">
-            <table className="table table-modern">
-              <thead>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-slate-800/80 border-b border-slate-700/60">
                 <tr>
-                  <th>Paciente</th>
-                  <th>Fecha</th>
-                  <th>Hora Inicio</th>
-                  <th>Hora Fin</th>
-                  <th>Odontólogo</th>
-                  <th>Estado</th>
-                  <th className="text-center">Acciones</th>
+                  {['Paciente', 'Fecha', 'Horario', 'Odontologo', 'Motivo', 'Estado', 'Acciones'].map((header) => <th key={header} className={`px-6 py-3.5 text-xs font-['Geist'] font-bold text-slate-400 uppercase tracking-wider ${header === 'Acciones' ? 'text-right' : ''}`}>{header}</th>)}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-700/40">
                 {citas.map((cita) => (
-                  <tr key={cita.id}>
-                    <td>
-                      <span className="fw-semibold">
-                        {cita.paciente ? `${cita.paciente.nombres || ''} ${cita.paciente.apellidos || ''}`.trim() : '-'}
-                      </span>
-                    </td>
-                    <td>{formatDate(cita.fecha)}</td>
-                    <td>{formatHour(cita.horaInicio)}</td>
-                    <td>{formatHour(cita.horaFin)}</td>
-                    <td>
-                      {cita.odontologo
-                        ? `${cita.odontologo.nombre || cita.odontologo.nombres || ''} ${cita.odontologo.apellidos || ''}`.trim() || '-'
-                        : '-'}
-                    </td>
-                    <td>{renderEstadoBadge(cita.estado)}</td>
-                    <td>{renderActions(cita)}</td>
+                  <tr key={cita.id} className="hover:bg-slate-800/50 transition-colors">
+                    <td className="px-6 py-4"><button onClick={() => setViewCita(cita)} className="text-left"><span className="block font-bold text-white text-sm hover:text-blue-400">{getPacienteName(cita)}</span><span className="block text-xs text-slate-400">Cita #{cita.id}</span></button></td>
+                    <td className="px-6 py-4 text-xs text-slate-300">{formatDate(cita.fecha)}</td>
+                    <td className="px-6 py-4 text-xs text-slate-300">{cita.horaInicio || '--:--'} - {cita.horaFin || '--:--'}</td>
+                    <td className="px-6 py-4 text-xs text-slate-400">{getOdontologoName(cita)}</td>
+                    <td className="px-6 py-4 text-xs text-slate-400 max-w-[220px] truncate">{cita.motivo || '-'}</td>
+                    <td className="px-6 py-4"><span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold border ${STATUS[cita.estado] || STATUS.PENDIENTE}`}>{cita.estado || 'PENDIENTE'}</span></td>
+                    <td className="px-6 py-4">{renderActions(cita)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-
-        {!loading && renderPagination()}
+        {renderPagination()}
       </div>
 
-      {viewCita && (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  <i className="bi bi-info-circle-fill text-primary me-2"></i>Detalles de la Cita
-                </h5>
-                <button type="button" className="btn-close" onClick={() => setViewCita(null)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="row g-3">
-                  <div className="col-6">
-                    <small className="text-muted d-block">Paciente</small>
-                    <strong>{viewCita.paciente ? `${viewCita.paciente.nombres || ''} ${viewCita.paciente.apellidos || ''}`.trim() : '-'}</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Odontólogo</small>
-                    <strong>{viewCita.odontologo ? `${viewCita.odontologo.nombre || viewCita.odontologo.nombres || ''} ${viewCita.odontologo.apellidos || ''}`.trim() : '-'}</strong>
-                  </div>
-                  <div className="col-4">
-                    <small className="text-muted d-block">Fecha</small>
-                    <strong>{formatDate(viewCita.fecha)}</strong>
-                  </div>
-                  <div className="col-4">
-                    <small className="text-muted d-block">Hora Inicio</small>
-                    <strong>{formatHour(viewCita.horaInicio)}</strong>
-                  </div>
-                  <div className="col-4">
-                    <small className="text-muted d-block">Hora Fin</small>
-                    <strong>{formatHour(viewCita.horaFin)}</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Estado</small>
-                    <div>{renderEstadoBadge(viewCita.estado)}</div>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Tipo Atención</small>
-                    <strong>{viewCita.tipoAtencion || '-'}</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Consultorio</small>
-                    <strong>{viewCita.consultorio || '-'}</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Motivo</small>
-                    <strong>{viewCita.motivo || '-'}</strong>
-                  </div>
-                  {viewCita.observaciones && (
-                    <div className="col-12">
-                      <small className="text-muted d-block">Observaciones</small>
-                      <strong>{viewCita.observaciones}</strong>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setViewCita(null)}>
-                  Cerrar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {cancelCita && (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  <i className="bi bi-x-circle-fill text-danger me-2"></i>Cancelar Cita
-                </h5>
-                <button type="button" className="btn-close" onClick={() => !cancelLoading && setCancelCita(null)}></button>
-              </div>
-              <div className="modal-body">
-                <p className="mb-2">¿Estás seguro de cancelar esta cita?</p>
-                <div className="mb-3 p-3 bg-light rounded">
-                  <small className="text-muted d-block">
-                    Paciente: {cancelCita.paciente ? `${cancelCita.paciente.nombres || ''} ${cancelCita.paciente.apellidos || ''}`.trim() : '-'}
-                  </small>
-                  <small className="text-muted d-block">
-                    Fecha: {formatDate(cancelCita.fecha)} {cancelCita.horaInicio} - {cancelCita.horaFin}
-                  </small>
-                </div>
-                <label className="form-label">Motivo de cancelación <span className="text-danger">*</span></label>
-                <textarea
-                  className="form-control"
-                  rows={3}
-                  value={cancelMotivo}
-                  onChange={(e) => setCancelMotivo(e.target.value)}
-                  placeholder="Indique el motivo de la cancelación..."
-                  disabled={cancelLoading}
-                />
-              </div>
-              <div className="modal-footer">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setCancelCita(null)}
-                  disabled={cancelLoading}
-                >
-                  Volver
-                </button>
-                <button
-                  className="btn btn-dental-danger d-inline-flex align-items-center gap-2"
-                  onClick={handleCancelar}
-                  disabled={cancelLoading || !cancelMotivo.trim()}
-                >
-                  {cancelLoading && (
-                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                  )}
-                  {cancelLoading ? 'Cancelando...' : 'Sí, Cancelar Cita'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {reprogramCita && (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  <i className="bi bi-calendar-plus-fill text-warning me-2"></i>Reprogramar Cita
-                </h5>
-                <button type="button" className="btn-close" onClick={() => !reprogramLoading && setReprogramCita(null)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="mb-3 p-3 bg-light rounded">
-                  <small className="text-muted d-block">
-                    Paciente: {reprogramCita.paciente ? `${reprogramCita.paciente.nombres || ''} ${reprogramCita.paciente.apellidos || ''}`.trim() : '-'}
-                  </small>
-                  <small className="text-muted d-block">
-                    Odontólogo: {reprogramCita.odontologo ? `${reprogramCita.odontologo.nombre || reprogramCita.odontologo.nombres || ''} ${reprogramCita.odontologo.apellidos || ''}`.trim() : '-'}
-                  </small>
-                </div>
-                <div className="row g-3">
-                  <div className="col-12">
-                    <label className="form-label">Nueva Fecha <span className="text-danger">*</span></label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={reprogramData.nuevaFecha}
-                      onChange={(e) => setReprogramData((prev) => ({ ...prev, nuevaFecha: e.target.value }))}
-                      disabled={reprogramLoading}
-                    />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label">Nueva Hora Inicio <span className="text-danger">*</span></label>
-                    <input
-                      type="time"
-                      className="form-control"
-                      value={reprogramData.nuevaHoraInicio}
-                      onChange={(e) => setReprogramData((prev) => ({ ...prev, nuevaHoraInicio: e.target.value }))}
-                      disabled={reprogramLoading}
-                    />
-                  </div>
-                  <div className="col-6">
-                    <label className="form-label">Nueva Hora Fin <span className="text-danger">*</span></label>
-                    <input
-                      type="time"
-                      className="form-control"
-                      value={reprogramData.nuevaHoraFin}
-                      onChange={(e) => setReprogramData((prev) => ({ ...prev, nuevaHoraFin: e.target.value }))}
-                      disabled={reprogramLoading}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setReprogramCita(null)}
-                  disabled={reprogramLoading}
-                >
-                  Volver
-                </button>
-                <button
-                  className="btn btn-dental-primary d-inline-flex align-items-center gap-2"
-                  onClick={handleReprogramar}
-                  disabled={reprogramLoading}
-                >
-                  {reprogramLoading && (
-                    <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                  )}
-                  {reprogramLoading ? 'Reprogramando...' : 'Reprogramar Cita'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {viewCita && <ViewModal cita={viewCita} onClose={() => setViewCita(null)} onEdit={() => navigate(`/citas/${viewCita.id}/editar`)} formatDate={formatDate} />}
+      {cancelCita && <TextModal title="Cancelar cita" label="Motivo de cancelacion" value={cancelMotivo} onChange={setCancelMotivo} onClose={() => setCancelCita(null)} onConfirm={handleCancelar} loading={cancelLoading} confirmText="Cancelar cita" danger />}
+      {reprogramCita && <ReprogramModal data={reprogramData} setData={setReprogramData} onClose={() => setReprogramCita(null)} onConfirm={handleReprogramar} loading={reprogramLoading} />}
     </div>
   );
 };
+
+const FilterInput = ({ label, ...props }) => (
+  <div>
+    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">{label}</label>
+    <input {...props} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-blue-500" />
+  </div>
+);
+
+const IconButton = ({ icon, color, onClick }) => (
+  <button type="button" onClick={onClick} className={`p-2 rounded-xl ${color} hover:bg-slate-700/70`}><span className="material-symbols-outlined text-lg">{icon}</span></button>
+);
+
+const ViewModal = ({ cita, onClose, onEdit, formatDate }) => (
+  <BaseModal title="Detalle de cita" onClose={onClose}>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+      <Info label="Paciente" value={getPacienteName(cita)} />
+      <Info label="Odontologo" value={getOdontologoName(cita)} />
+      <Info label="Fecha" value={formatDate(cita.fecha)} />
+      <Info label="Horario" value={`${cita.horaInicio || '--:--'} - ${cita.horaFin || '--:--'}`} />
+      <Info label="Estado" value={cita.estado || 'PENDIENTE'} />
+      <Info label="Motivo" value={cita.motivo || '-'} />
+    </div>
+    <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-slate-700/60"><button onClick={onClose} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-700">Cerrar</button><button onClick={onEdit} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500">Editar</button></div>
+  </BaseModal>
+);
+
+const TextModal = ({ title, label, value, onChange, onClose, onConfirm, loading, confirmText, danger }) => (
+  <BaseModal title={title} onClose={onClose}>
+    <label className="block text-sm font-semibold text-slate-300 mb-2">{label}</label>
+    <textarea rows={4} value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-sm text-white placeholder-slate-500 focus:border-blue-500" />
+    <div className="flex justify-end gap-2 mt-5"><button onClick={onClose} disabled={loading} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-700">Cerrar</button><button onClick={onConfirm} disabled={loading} className={`rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-60 ${danger ? 'bg-rose-600 hover:bg-rose-500' : 'bg-blue-600 hover:bg-blue-500'}`}>{loading ? 'Procesando...' : confirmText}</button></div>
+  </BaseModal>
+);
+
+const ReprogramModal = ({ data, setData, onClose, onConfirm, loading }) => (
+  <BaseModal title="Reprogramar cita" onClose={onClose}>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <FilterInput label="Nueva fecha" type="date" value={data.nuevaFecha} onChange={(e) => setData((prev) => ({ ...prev, nuevaFecha: e.target.value }))} />
+      <FilterInput label="Inicio" type="time" value={data.nuevaHoraInicio} onChange={(e) => setData((prev) => ({ ...prev, nuevaHoraInicio: e.target.value }))} />
+      <FilterInput label="Fin" type="time" value={data.nuevaHoraFin} onChange={(e) => setData((prev) => ({ ...prev, nuevaHoraFin: e.target.value }))} />
+    </div>
+    <div className="flex justify-end gap-2 mt-5"><button onClick={onClose} disabled={loading} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-700">Cerrar</button><button onClick={onConfirm} disabled={loading} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500 disabled:opacity-60">{loading ? 'Guardando...' : 'Reprogramar'}</button></div>
+  </BaseModal>
+);
+
+const BaseModal = ({ title, onClose, children }) => (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div className="w-full max-w-2xl rounded-3xl border border-slate-700/60 bg-[#1E293B] p-6 shadow-2xl text-slate-300">
+      <div className="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-4 mb-5"><h3 className="font-['Geist'] text-xl font-bold text-white m-0">{title}</h3><button onClick={onClose} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button></div>
+      {children}
+    </div>
+  </div>
+);
+
+const Info = ({ label, value }) => (
+  <div className="rounded-2xl border border-slate-700/60 bg-slate-800/70 p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 m-0">{label}</p><p className="font-semibold text-white m-0 mt-1">{value}</p></div>
+);
 
 export default Citas;

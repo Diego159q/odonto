@@ -90,6 +90,13 @@ const Sidebar = () => {
 
       <div className="mt-auto border-t border-slate-700/50 pt-4 space-y-2">
         <button
+          onClick={() => navigate('/citas/nueva')}
+          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white py-3 px-4 rounded-xl font-['Geist'] font-semibold text-sm mb-3 shadow-lg shadow-blue-900/30 transition-all active:scale-[0.98]"
+        >
+          <span className="material-symbols-outlined text-[20px]">add</span>
+          <span>Nueva cita</span>
+        </button>
+        <button
           onClick={() => navigate('/notificaciones')}
           className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors text-sm"
         >

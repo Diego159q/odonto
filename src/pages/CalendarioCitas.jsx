@@ -1,20 +1,48 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { citaService, usuarioService } from '../services/endpoints';
-import { Calendar, momentLocalizer } from 'react-big-calendar';
-import moment from 'moment';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { toast } from 'react-toastify';
 
-const localizer = momentLocalizer(moment);
+const ESTADO_STYLES = {
+  PENDIENTE: 'bg-amber-500/10 border-amber-500 text-amber-400',
+  CONFIRMADA: 'bg-blue-600 text-white border-blue-500',
+  ATENDIDA: 'bg-emerald-500/10 border-emerald-500 text-emerald-400',
+  CANCELADA: 'bg-rose-500/10 border-rose-500 text-rose-400',
+  REPROGRAMADA: 'bg-purple-500/10 border-purple-500 text-purple-400',
+  NO_ASISTIO: 'bg-slate-500/10 border-slate-500 text-slate-400',
+};
 
-const ESTADO_COLORS = {
-  PENDIENTE: { backgroundColor: '#FFF3E0', borderColor: '#E65100', color: '#E65100' },
-  CONFIRMADA: { backgroundColor: '#E3F2FD', borderColor: '#1565C0', color: '#1565C0' },
-  ATENDIDA: { backgroundColor: '#E8F5E9', borderColor: '#2E7D32', color: '#2E7D32' },
-  CANCELADA: { backgroundColor: '#FFEBEE', borderColor: '#C62828', color: '#C62828' },
-  REPROGRAMADA: { backgroundColor: '#F3E5F5', borderColor: '#6A1B9A', color: '#6A1B9A' },
-  NO_ASISTIO: { backgroundColor: '#FFF8E1', borderColor: '#F57F17', color: '#F57F17' },
+const WEEKDAYS = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
+const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+const toDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getPacienteName = (cita) => {
+  if (cita.paciente) return `${cita.paciente.nombres || ''} ${cita.paciente.apellidos || ''}`.trim() || 'Sin paciente';
+  return cita.pacienteNombre || cita.paciente || 'Sin paciente';
+};
+
+const getOdontologoName = (cita) => {
+  if (cita.odontologo) return `${cita.odontologo.nombre || cita.odontologo.nombres || ''} ${cita.odontologo.apellidos || ''}`.trim();
+  return cita.odontologoNombre || '';
+};
+
+const buildMonthGrid = (monthDate) => {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const first = new Date(year, month, 1);
+  const firstMondayIndex = (first.getDay() + 6) % 7;
+  const start = new Date(year, month, 1 - firstMondayIndex);
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return date;
+  });
 };
 
 const CalendarioCitas = () => {
@@ -23,7 +51,10 @@ const CalendarioCitas = () => {
   const [loading, setLoading] = useState(true);
   const [odontologos, setOdontologos] = useState([]);
   const [odontologoFilter, setOdontologoFilter] = useState('');
-  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedCita, setSelectedCita] = useState(null);
+  const [currentMonth, setCurrentMonth] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState(() => toDateKey(new Date()));
+  const [viewMode, setViewMode] = useState('mes');
 
   const fetchOdontologos = useCallback(async () => {
     try {
@@ -31,7 +62,7 @@ const CalendarioCitas = () => {
       const data = response.data;
       setOdontologos(data.content || (Array.isArray(data) ? data : []));
     } catch {
-      // non-critical
+      // no critico
     }
   }, []);
 
@@ -42,11 +73,9 @@ const CalendarioCitas = () => {
       if (odontologoFilter) params.odontologoId = odontologoFilter;
       const response = await citaService.listar(params);
       const data = response.data;
-      const list = data.content || (Array.isArray(data) ? data : []);
-      setCitas(list);
+      setCitas(data.content || (Array.isArray(data) ? data : []));
     } catch (error) {
-      const msg = error.response?.data?.message || 'Error al cargar citas';
-      toast.error(msg);
+      toast.error(error.response?.data?.message || 'Error al cargar citas');
       setCitas([]);
     } finally {
       setLoading(false);
@@ -61,253 +90,198 @@ const CalendarioCitas = () => {
     fetchCitas();
   }, [fetchCitas]);
 
-  const events = citas
-    .filter((c) => c.estado !== 'CANCELADA')
-    .map((cita) => {
-      const fechaStr = cita.fecha;
-      const start = new Date(`${fechaStr}T${cita.horaInicio || '00:00'}`);
-      const end = new Date(`${fechaStr}T${cita.horaFin || '23:59'}`);
-      const pacienteName = cita.paciente
-        ? `${cita.paciente.nombres || ''} ${cita.paciente.apellidos || ''}`.trim()
-        : 'Sin paciente';
-      const odontologoName = cita.odontologo
-        ? `${cita.odontologo.nombre || cita.odontologo.nombres || ''} ${cita.odontologo.apellidos || ''}`.trim()
-        : '';
-      return {
-        id: cita.id,
-        title: `${pacienteName} ${cita.horaInicio ? `(${cita.horaInicio})` : ''}`,
-        start,
-        end,
-        cita,
-        pacienteName,
-        odontologoName,
-        estado: cita.estado || 'PENDIENTE',
-      };
-    });
+  const eventsByDate = useMemo(() => {
+    return citas.reduce((acc, cita) => {
+      if (!cita.fecha || cita.estado === 'CANCELADA') return acc;
+      acc[cita.fecha] = acc[cita.fecha] || [];
+      acc[cita.fecha].push(cita);
+      return acc;
+    }, {});
+  }, [citas]);
 
-  const eventPropGetter = (event) => {
-    const colors = ESTADO_COLORS[event.estado] || ESTADO_COLORS.PENDIENTE;
-    return {
-      style: {
-        backgroundColor: colors.backgroundColor,
-        borderLeft: `4px solid ${colors.borderColor}`,
-        color: colors.color,
-        borderRadius: '4px',
-        padding: '2px 6px',
-        fontSize: '0.8rem',
-        fontWeight: 500,
-        opacity: event.estado === 'CANCELADA' ? 0.5 : 1,
-      },
-    };
+  const monthDays = useMemo(() => buildMonthGrid(currentMonth), [currentMonth]);
+  const selectedEvents = eventsByDate[selectedDate] || [];
+  const todayKey = toDateKey(new Date());
+  const monthTitle = `${MONTHS[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+
+  const moveMonth = (amount) => {
+    setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
   };
 
-  const handleSelectEvent = (event) => {
-    setSelectedEvent(event);
+  const goToday = () => {
+    const now = new Date();
+    setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+    setSelectedDate(toDateKey(now));
   };
-
-  const handleSelectSlot = (slotInfo) => {
-    const startDate = moment(slotInfo.start).format('YYYY-MM-DD');
-    navigate(`/citas/nueva?fecha=${startDate}`);
-  };
-
-  const handleViewDetails = () => {
-    if (selectedEvent) {
-      navigate(`/citas/${selectedEvent.id}/editar`);
-    }
-  };
-
-  const formatHour = (hour) => hour || '-';
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    const d = new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00'));
-    return d.toLocaleDateString('es-MX', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    const date = new Date(`${dateStr}T00:00:00`);
+    return date.toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' });
   };
 
   return (
-    <div className="fade-in">
-      <div className="page-header">
-        <h2 className="page-title">
-          <i className="bi bi-calendar-week-fill me-2 text-primary"></i>Calendario de Citas
-        </h2>
-        <div className="d-flex align-items-center gap-3 flex-wrap">
-          <div className="d-flex align-items-center gap-2">
-            <label htmlFor="filterOdontologo" className="form-label mb-0 text-nowrap">
-              <i className="bi bi-person-badge me-1"></i>Odontólogo:
-            </label>
+    <div className="p-8 min-h-[calc(100vh-64px)] flex flex-col xl:flex-row gap-6 animate-in text-slate-300">
+      <section className="flex-grow flex flex-col gap-4 min-w-0">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-400">Agenda clinica</p>
+            <h1 className="font-['Geist'] text-3xl font-bold text-white tracking-tight mt-2">Agenda de citas</h1>
+            <p className="text-sm text-slate-400">{monthTitle}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
             <select
-              id="filterOdontologo"
-              className="form-select form-select-sm"
-              style={{ minWidth: 180 }}
+              className="bg-slate-800 border border-slate-700 rounded-xl text-xs font-semibold text-slate-200 py-2.5 px-3 min-w-[180px]"
               value={odontologoFilter}
               onChange={(e) => setOdontologoFilter(e.target.value)}
             >
-              <option value="">Todos</option>
+              <option value="">Todos los odontologos</option>
               {odontologos.map((odo) => (
-                <option key={odo.id} value={odo.id}>
-                  {odo.nombre || odo.nombres || ''} {odo.apellidos || ''}
-                </option>
+                <option key={odo.id} value={odo.id}>{odo.nombre || odo.nombres || ''} {odo.apellidos || ''}</option>
               ))}
             </select>
+
+            <div className="flex bg-slate-800 rounded-xl p-1 border border-slate-700/60">
+              {['mes', 'semana', 'dia'].map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setViewMode(mode)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === mode ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                >
+                  {mode[0].toUpperCase() + mode.slice(1)}
+                </button>
+              ))}
+            </div>
+
+            <button type="button" onClick={() => navigate('/citas/nueva')} className="bg-blue-600 text-white px-4 py-2.5 rounded-xl flex items-center gap-1.5 text-xs font-bold shadow-lg shadow-blue-900/30 hover:bg-blue-500">
+              <span className="material-symbols-outlined text-sm">add</span>
+              Nueva cita
+            </button>
           </div>
-          <div className="d-flex gap-2 align-items-center">
-            {Object.entries(ESTADO_COLORS).map(([estado, colors]) => (
-              <span
-                key={estado}
-                className="badge"
-                style={{
-                  backgroundColor: colors.backgroundColor,
-                  color: colors.color,
-                  border: `1px solid ${colors.borderColor}40`,
-                  fontSize: '0.7rem',
-                }}
-              >
-                {estado}
-              </span>
+        </div>
+
+        <div className="bg-[#1E293B] rounded-2xl shadow-xl border border-slate-700/50 overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-slate-700/60 bg-slate-800/40">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => moveMonth(-1)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-700 hover:text-white"><span className="material-symbols-outlined">chevron_left</span></button>
+              <button type="button" onClick={goToday} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700">Hoy</button>
+              <button type="button" onClick={() => moveMonth(1)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-700 hover:text-white"><span className="material-symbols-outlined">chevron_right</span></button>
+            </div>
+            <h2 className="font-['Geist'] text-lg font-bold text-white m-0">{monthTitle}</h2>
+            <div className="flex items-center gap-4 text-xs">
+              <LegendDot color="bg-amber-400" label="Pendiente" />
+              <LegendDot color="bg-blue-500" label="Confirmada" />
+              <LegendDot color="bg-emerald-400" label="Atendida" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-7 bg-slate-800/90 border-b border-slate-700/50 text-center">
+            {WEEKDAYS.map((day) => (
+              <div key={day} className="py-2.5 font-['Geist'] text-xs font-bold text-slate-400 uppercase tracking-wider">{day}</div>
+            ))}
+          </div>
+
+          {loading ? (
+            <div className="py-24 text-center text-slate-500">
+              <span className="material-symbols-outlined text-5xl text-blue-400 animate-spin">progress_activity</span>
+              <p className="mt-3 text-sm">Cargando citas...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-7 auto-rows-[118px] sm:auto-rows-[135px]">
+              {monthDays.map((date) => {
+                const key = toDateKey(date);
+                const dayEvents = eventsByDate[key] || [];
+                const inMonth = date.getMonth() === currentMonth.getMonth();
+                const isSelected = key === selectedDate;
+                const isToday = key === todayKey;
+                return (
+                  <button
+                    type="button"
+                    key={key}
+                    onClick={() => setSelectedDate(key)}
+                    className={`border-r border-b border-slate-700/40 p-2 flex flex-col gap-1 text-left transition-all relative overflow-hidden ${isSelected ? 'bg-slate-800/95 ring-2 ring-inset ring-blue-500 z-10' : inMonth ? 'hover:bg-slate-800/50' : 'bg-slate-900/40 text-slate-600'}`}
+                  >
+                    <span className={`text-xs font-bold ${isSelected ? 'text-blue-400' : isToday ? 'text-emerald-400' : inMonth ? 'text-slate-300' : 'text-slate-600'}`}>{date.getDate()}</span>
+                    {dayEvents.slice(0, 3).map((cita) => (
+                      <span key={cita.id} className={`block rounded-lg border-l-2 px-1.5 py-1 text-[10px] font-bold leading-tight truncate ${ESTADO_STYLES[cita.estado] || ESTADO_STYLES.PENDIENTE}`}>
+                        {cita.horaInicio || '--:--'} {getPacienteName(cita)}
+                      </span>
+                    ))}
+                    {dayEvents.length > 3 && <span className="text-[10px] text-slate-500 font-bold">+{dayEvents.length - 3} mas</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <aside className="w-full xl:w-96 flex flex-col gap-4">
+        <div className="bg-[#1E293B] rounded-2xl p-6 shadow-xl border border-slate-700/50">
+          <div className="flex justify-between items-start gap-3">
+            <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+              <span className="material-symbols-outlined text-3xl">event</span>
+            </div>
+            <button type="button" onClick={() => navigate(`/citas/nueva?fecha=${selectedDate}`)} className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-500">Agregar</button>
+          </div>
+
+          <div className="mt-4">
+            <h3 className="font-['Geist'] text-xl font-bold text-white">{formatDate(selectedDate)}</h3>
+            <p className="text-xs font-semibold text-blue-400 mt-0.5">{selectedEvents.length} citas programadas</p>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {selectedEvents.length === 0 ? (
+              <div className="p-5 rounded-2xl bg-slate-800/70 border border-slate-700/60 text-center text-sm text-slate-500">No hay citas para este dia.</div>
+            ) : selectedEvents.map((cita) => (
+              <button key={cita.id} type="button" onClick={() => setSelectedCita(cita)} className="w-full p-3 rounded-2xl bg-slate-800/80 border border-slate-700/60 hover:border-blue-500/50 text-left transition-all">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-white text-sm m-0">{getPacienteName(cita)}</p>
+                    <p className="text-xs text-slate-400 m-0">{cita.motivo || 'Cita programada'}</p>
+                  </div>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${ESTADO_STYLES[cita.estado] || ESTADO_STYLES.PENDIENTE}`}>{cita.estado || 'PENDIENTE'}</span>
+                </div>
+                <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+                  <span className="material-symbols-outlined text-sm">schedule</span>
+                  {cita.horaInicio || '--:--'} - {cita.horaFin || '--:--'}
+                </div>
+              </button>
             ))}
           </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="loading-container">
-          <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }} role="status">
-            <span className="visually-hidden">Cargando...</span>
+        <div className="bg-blue-500/10 rounded-2xl p-4 border border-blue-500/20 flex items-center gap-4">
+          <div className="p-2.5 bg-blue-500/20 rounded-xl text-blue-400"><span className="material-symbols-outlined text-xl">trending_up</span></div>
+          <div>
+            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider m-0">Total visible</p>
+            <p className="font-['Geist'] text-2xl font-bold text-white leading-tight m-0">{citas.length} <span className="text-xs font-normal text-slate-400">citas</span></p>
           </div>
         </div>
-      ) : (
-        <div className="rbc-calendar" style={{ height: 'calc(100vh - 220px)', minHeight: 500 }}>
-          <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            titleAccessor="title"
-            eventPropGetter={eventPropGetter}
-            onSelectEvent={handleSelectEvent}
-            onSelectSlot={handleSelectSlot}
-            selectable
-            views={['month', 'week', 'day']}
-            defaultView="month"
-            popup
-            messages={{
-              next: 'Siguiente',
-              previous: 'Anterior',
-              today: 'Hoy',
-              month: 'Mes',
-              week: 'Semana',
-              day: 'Día',
-              date: 'Fecha',
-              time: 'Hora',
-              event: 'Evento',
-              noEventsInRange: 'No hay citas en este rango',
-              showMore: (total) => `+${total} más`,
-            }}
-          />
-        </div>
-      )}
+      </aside>
 
-      {selectedEvent && (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">
-                  <i className="bi bi-info-circle-fill text-primary me-2"></i>Detalles de la Cita
-                </h5>
-                <button type="button" className="btn-close" onClick={() => setSelectedEvent(null)}></button>
+      {selectedCita && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-xl rounded-3xl border border-slate-700/60 bg-[#1E293B] p-6 shadow-2xl text-slate-300">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-700/60 pb-4">
+              <div>
+                <h3 className="font-['Geist'] text-xl font-bold text-white">Detalle de cita</h3>
+                <p className="text-xs text-slate-400">{formatDate(selectedCita.fecha)}</p>
               </div>
-              <div className="modal-body">
-                <div className="row g-3">
-                  <div className="col-6">
-                    <small className="text-muted d-block">Paciente</small>
-                    <strong>{selectedEvent.cita?.paciente
-                      ? `${selectedEvent.cita.paciente.nombres || ''} ${selectedEvent.cita.paciente.apellidos || ''}`.trim()
-                      : '-'}</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Odontólogo</small>
-                    <strong>{selectedEvent.odontologoName || '-'}</strong>
-                  </div>
-                  <div className="col-4">
-                    <small className="text-muted d-block">Fecha</small>
-                    <strong>{formatDate(selectedEvent.cita?.fecha)}</strong>
-                  </div>
-                  <div className="col-4">
-                    <small className="text-muted d-block">Hora Inicio</small>
-                    <strong>{formatHour(selectedEvent.cita?.horaInicio)}</strong>
-                  </div>
-                  <div className="col-4">
-                    <small className="text-muted d-block">Hora Fin</small>
-                    <strong>{formatHour(selectedEvent.cita?.horaFin)}</strong>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Estado</small>
-                    <div>
-                      <span
-                        className="badge"
-                        style={{
-                          backgroundColor: (ESTADO_COLORS[selectedEvent.cita?.estado] || ESTADO_COLORS.PENDIENTE).backgroundColor,
-                          color: (ESTADO_COLORS[selectedEvent.cita?.estado] || ESTADO_COLORS.PENDIENTE).color,
-                        }}
-                      >
-                        {selectedEvent.cita?.estado || 'PENDIENTE'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="col-6">
-                    <small className="text-muted d-block">Motivo</small>
-                    <strong>{selectedEvent.cita?.motivo || '-'}</strong>
-                  </div>
-                  {selectedEvent.cita?.tipoAtencion && (
-                    <div className="col-6">
-                      <small className="text-muted d-block">Tipo Atención</small>
-                      <strong>{selectedEvent.cita.tipoAtencion}</strong>
-                    </div>
-                  )}
-                  {selectedEvent.cita?.consultorio && (
-                    <div className="col-6">
-                      <small className="text-muted d-block">Consultorio</small>
-                      <strong>{selectedEvent.cita.consultorio}</strong>
-                    </div>
-                  )}
-                  {selectedEvent.cita?.observaciones && (
-                    <div className="col-12">
-                      <small className="text-muted d-block">Observaciones</small>
-                      <strong>{selectedEvent.cita.observaciones}</strong>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="modal-footer d-flex justify-content-between">
-                <div>
-                  {selectedEvent.cita?.estado === 'PENDIENTE' && (
-                    <button
-                      className="btn btn-sm btn-outline-primary me-1"
-                      onClick={async () => {
-                        try {
-                          await citaService.confirmar(selectedEvent.id);
-                          toast.success('Cita confirmada');
-                          setSelectedEvent(null);
-                          fetchCitas();
-                        } catch (error) {
-                          toast.error(error.response?.data?.message || 'Error al confirmar');
-                        }
-                      }}
-                    >
-                      <i className="bi bi-check-lg me-1"></i>Confirmar
-                    </button>
-                  )}
-                </div>
-                <div>
-                  <button className="btn btn-sm btn-outline-secondary me-1" onClick={() => setSelectedEvent(null)}>
-                    Cerrar
-                  </button>
-                  <button className="btn btn-sm btn-dental-primary" onClick={handleViewDetails}>
-                    <i className="bi bi-pencil me-1"></i>Editar
-                  </button>
-                </div>
-              </div>
+              <button onClick={() => setSelectedCita(null)} className="text-slate-400 hover:text-white"><span className="material-symbols-outlined">close</span></button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-5 text-sm">
+              <Info label="Paciente" value={getPacienteName(selectedCita)} />
+              <Info label="Odontologo" value={getOdontologoName(selectedCita) || '-'} />
+              <Info label="Horario" value={`${selectedCita.horaInicio || '--:--'} - ${selectedCita.horaFin || '--:--'}`} />
+              <Info label="Estado" value={selectedCita.estado || 'PENDIENTE'} />
+              <div className="sm:col-span-2"><Info label="Motivo" value={selectedCita.motivo || '-'} /></div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-slate-700/60">
+              <button onClick={() => setSelectedCita(null)} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-700">Cerrar</button>
+              <button onClick={() => navigate(`/citas/${selectedCita.id}/editar`)} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500">Editar cita</button>
             </div>
           </div>
         </div>
@@ -315,5 +289,16 @@ const CalendarioCitas = () => {
     </div>
   );
 };
+
+const LegendDot = ({ color, label }) => (
+  <span className="flex items-center gap-1.5 text-slate-400"><span className={`w-2.5 h-2.5 rounded-full ${color}`} />{label}</span>
+);
+
+const Info = ({ label, value }) => (
+  <div className="rounded-2xl border border-slate-700/60 bg-slate-800/70 p-3">
+    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 m-0">{label}</p>
+    <p className="font-semibold text-white m-0 mt-1">{value}</p>
+  </div>
+);
 
 export default CalendarioCitas;
