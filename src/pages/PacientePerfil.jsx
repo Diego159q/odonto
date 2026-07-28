@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { citaService, pacienteService, pagoService, tratamientoService } from '../services/endpoints';
 import { toast } from 'react-toastify';
 import jsPDF from 'jspdf';
+import { buildWhatsAppUrl, patientFollowUpMessage, postCareMessage } from '../utils/noApiAutomation';
 
 const TABS = [
   { key: 'expediente', label: 'Expediente', icon: 'folder_open' },
@@ -126,13 +127,6 @@ const PacientePerfil = () => {
   ]).filter((item) => item.fecha).sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 8), [citas, tratamientos, pagos]);
 
   const totalPagos = pagos.reduce((sum, pago) => sum + Number(pago.monto || 0), 0);
-
-  const cleanPhone = (phone) => String(phone || '').replace(/\D/g, '');
-  const whatsappUrl = () => {
-    const phone = cleanPhone(paciente?.telefono);
-    const text = encodeURIComponent(`Hola ${paciente?.nombres || ''}, le escribimos de DentalCare para coordinar su atencion.`);
-    return phone ? `https://wa.me/51${phone}?text=${text}` : `https://wa.me/?text=${text}`;
-  };
 
   const exportExpedientePdf = () => {
     const doc = new jsPDF();
@@ -262,7 +256,8 @@ const PacientePerfil = () => {
               <QuickAction to={`/historias-clinicas/nueva/${paciente.id}`} icon="note_add" label="Nueva nota clinica" />
               <QuickAction to={`/odontograma/paciente/${paciente.id}`} icon="dentistry" label="Abrir odontograma" />
               <QuickAction to={`/citas/nueva?pacienteId=${paciente.id}`} icon="calendar_add_on" label="Programar cita" />
-              <a href={whatsappUrl()} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20 no-underline"><span className="material-symbols-outlined">chat</span>WhatsApp</a>
+              <a href={buildWhatsAppUrl({ phone: paciente.telefono, message: patientFollowUpMessage(paciente) })} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20 no-underline"><span className="material-symbols-outlined">chat</span>WhatsApp control</a>
+              <a href={buildWhatsAppUrl({ phone: paciente.telefono, message: postCareMessage(paciente) })} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3 text-sm font-bold text-cyan-300 hover:bg-cyan-500/20 no-underline"><span className="material-symbols-outlined">fact_check</span>Indicaciones post</a>
               <button onClick={exportExpedientePdf} className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-800 p-3 text-sm font-bold text-slate-200 hover:bg-slate-700"><span className="material-symbols-outlined">picture_as_pdf</span>Exportar PDF</button>
             </div>
           </Panel>

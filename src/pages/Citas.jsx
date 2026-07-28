@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { citaService } from '../services/endpoints';
 import { toast } from 'react-toastify';
+import { appointmentReminderMessage, buildWhatsAppUrl, downloadAppointmentIcs, getPatientPhoneFrom } from '../utils/noApiAutomation';
 
 const PAGE_SIZE = 10;
 const ESTADOS = ['', 'PENDIENTE', 'CONFIRMADA', 'ATENDIDA', 'CANCELADA', 'REPROGRAMADA', 'NO_ASISTIO'];
@@ -172,13 +173,16 @@ const Citas = () => {
 
   const renderActions = (cita) => {
     const actions = ACTIONS_BY_ESTADO[cita.estado] || ['ver'];
+    const whatsappUrl = buildWhatsAppUrl({ phone: getPatientPhoneFrom(cita), message: appointmentReminderMessage(cita) });
     return (
       <div className="flex items-center justify-end gap-1.5">
-        {actions.includes('ver') && <IconButton icon="visibility" color="text-sky-400" onClick={() => setViewCita(cita)} />}
-        {actions.includes('editar') && <IconButton icon="edit" color="text-emerald-400" onClick={() => navigate(`/citas/${cita.id}/editar`)} />}
-        {actions.includes('confirmar') && <IconButton icon="check" color="text-blue-400" onClick={() => handleConfirmar(cita.id)} />}
-        {actions.includes('cancelar') && <IconButton icon="close" color="text-rose-400" onClick={() => { setCancelCita(cita); setCancelMotivo(''); }} />}
-        {actions.includes('reprogramar') && <IconButton icon="event_repeat" color="text-amber-400" onClick={() => openReprogramModal(cita)} />}
+        <IconButton title="Enviar WhatsApp" icon="chat" color="text-emerald-400" onClick={() => window.open(whatsappUrl, '_blank', 'noopener,noreferrer')} />
+        <IconButton title="Descargar calendario" icon="event_upcoming" color="text-purple-400" onClick={() => downloadAppointmentIcs(cita)} />
+        {actions.includes('ver') && <IconButton title="Ver detalle" icon="visibility" color="text-sky-400" onClick={() => setViewCita(cita)} />}
+        {actions.includes('editar') && <IconButton title="Editar" icon="edit" color="text-emerald-400" onClick={() => navigate(`/citas/${cita.id}/editar`)} />}
+        {actions.includes('confirmar') && <IconButton title="Confirmar" icon="check" color="text-blue-400" onClick={() => handleConfirmar(cita.id)} />}
+        {actions.includes('cancelar') && <IconButton title="Cancelar" icon="close" color="text-rose-400" onClick={() => { setCancelCita(cita); setCancelMotivo(''); }} />}
+        {actions.includes('reprogramar') && <IconButton title="Reprogramar" icon="event_repeat" color="text-amber-400" onClick={() => openReprogramModal(cita)} />}
       </div>
     );
   };
@@ -265,8 +269,8 @@ const FilterInput = ({ label, ...props }) => (
   </div>
 );
 
-const IconButton = ({ icon, color, onClick }) => (
-  <button type="button" onClick={onClick} className={`p-2 rounded-xl ${color} hover:bg-slate-700/70`}><span className="material-symbols-outlined text-lg">{icon}</span></button>
+const IconButton = ({ title, icon, color, onClick }) => (
+  <button type="button" title={title} onClick={onClick} className={`p-2 rounded-xl ${color} hover:bg-slate-700/70`}><span className="material-symbols-outlined text-lg">{icon}</span></button>
 );
 
 const ViewModal = ({ cita, onClose, onEdit, formatDate }) => (
@@ -279,7 +283,12 @@ const ViewModal = ({ cita, onClose, onEdit, formatDate }) => (
       <Info label="Estado" value={cita.estado || 'PENDIENTE'} />
       <Info label="Motivo" value={cita.motivo || '-'} />
     </div>
-    <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-slate-700/60"><button onClick={onClose} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-700">Cerrar</button><button onClick={onEdit} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500">Editar</button></div>
+    <div className="flex flex-wrap justify-end gap-2 mt-6 pt-4 border-t border-slate-700/60">
+      <button onClick={() => window.open(buildWhatsAppUrl({ phone: getPatientPhoneFrom(cita), message: appointmentReminderMessage(cita) }), '_blank', 'noopener,noreferrer')} className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-300 hover:bg-emerald-500/20">WhatsApp</button>
+      <button onClick={() => downloadAppointmentIcs(cita)} className="rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-2 text-sm font-bold text-purple-300 hover:bg-purple-500/20">Calendario</button>
+      <button onClick={onClose} className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-700">Cerrar</button>
+      <button onClick={onEdit} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500">Editar</button>
+    </div>
   </BaseModal>
 );
 

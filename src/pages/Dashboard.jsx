@@ -16,6 +16,7 @@ import {
 } from 'chart.js';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import AiXrayModal from '../components/AiXrayModal';
+import { appointmentReminderMessage, buildWhatsAppUrl, downloadAppointmentIcs, getPatientNameFrom, getPatientPhoneFrom, paymentReminderMessage } from '../utils/noApiAutomation';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement, PointElement, LineElement);
 
@@ -51,6 +52,13 @@ const getToday = () => {
   return new Date(now.getTime() - offset * 60000).toISOString().slice(0, 10);
 };
 
+const getTomorrow = () => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const offset = tomorrow.getTimezoneOffset();
+  return new Date(tomorrow.getTime() - offset * 60000).toISOString().slice(0, 10);
+};
+
 const normalizeList = (data) => (Array.isArray(data) ? data : data?.content || []);
 
 const Dashboard = () => {
@@ -58,6 +66,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [citasHoy, setCitasHoy] = useState([]);
+  const [citasManana, setCitasManana] = useState([]);
   const [deudas, setDeudas] = useState([]);
   const [homeLoading, setHomeLoading] = useState(true);
   const [aiOpen, setAiOpen] = useState(false);
@@ -82,12 +91,15 @@ const Dashboard = () => {
     const loadHomeWork = async () => {
       setHomeLoading(true);
       const today = getToday();
+      const tomorrow = getTomorrow();
       try {
-        const [citasRes, deudasRes] = await Promise.allSettled([
+        const [citasRes, citasMananaRes, deudasRes] = await Promise.allSettled([
           citaService.listar({ fechaDesde: today, fechaHasta: today, page: 0, size: 6 }),
+          citaService.listar({ fechaDesde: tomorrow, fechaHasta: tomorrow, page: 0, size: 6 }),
           pagoService.deudasPendientes(),
         ]);
         if (citasRes.status === 'fulfilled') setCitasHoy(normalizeList(citasRes.value.data));
+        if (citasMananaRes.status === 'fulfilled') setCitasManana(normalizeList(citasMananaRes.value.data));
         if (deudasRes.status === 'fulfilled') setDeudas(normalizeList(deudasRes.value.data).slice(0, 6));
       } finally {
         setHomeLoading(false);
@@ -207,22 +219,26 @@ const Dashboard = () => {
             {ingresosMensuales.length > 0 ? <Bar data={barData} options={chartOptions} /> : <p className="py-12 text-center text-slate-500">No hay datos disponibles</p>}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <WorkCard title="Agenda de hoy" icon="calendar_day" to="/calendario-citas" loading={homeLoading} empty="No hay citas para hoy">
               {citasHoy.map((cita) => (
-                <Link key={cita.id} to="/citas" className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-800/80 transition-all no-underline text-slate-300">
-                  <span className="w-16 text-center font-bold text-blue-400">{cita.horaInicio || cita.hora || '--:--'}</span>
-                  <span className="min-w-0"><strong className="block text-white truncate">{cita.pacienteNombre || cita.paciente || 'Paciente'}</strong><small className="text-slate-400">{cita.motivo || cita.estado || 'Cita programada'}</small></span>
-                </Link>
+                <ReminderRow key={cita.id} cita={cita} />
+              ))}
+            </WorkCard>
+
+            <WorkCard title="Confirmar manana" icon="mark_chat_unread" to="/citas" loading={homeLoading} empty="No hay citas para confirmar">
+              {citasManana.map((cita) => (
+                <ReminderRow key={cita.id} cita={cita} compact />
               ))}
             </WorkCard>
 
             <WorkCard title="Pagos pendientes" icon="warning" to="/pagos" loading={homeLoading} empty="No hay deudas pendientes">
               {deudas.map((deuda, index) => (
-                <Link key={deuda.id || index} to="/pagos" className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-800/80 transition-all no-underline text-slate-300">
+                <div key={deuda.id || index} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-800/80 transition-all text-slate-300">
                   <span className="w-24 font-bold text-amber-400">{formatCurrency(deuda.saldo || deuda.deuda || deuda.montoPendiente || 0)}</span>
-                  <span className="min-w-0"><strong className="block text-white truncate">{deuda.pacienteNombre || deuda.paciente || 'Paciente'}</strong><small className="text-slate-400">{deuda.tratamientoNombre || deuda.concepto || 'Saldo pendiente'}</small></span>
-                </Link>
+                  <Link to="/pagos" className="min-w-0 flex-1 no-underline"><strong className="block text-white truncate">{getPatientNameFrom(deuda)}</strong><small className="text-slate-400">{deuda.tratamientoNombre || deuda.concepto || 'Saldo pendiente'}</small></Link>
+                  <a href={buildWhatsAppUrl({ phone: getPatientPhoneFrom(deuda), message: paymentReminderMessage(deuda) })} target="_blank" rel="noreferrer" className="shrink-0 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-bold text-emerald-300 no-underline hover:bg-emerald-500/20">WhatsApp</a>
+                </div>
               ))}
             </WorkCard>
           </div>
@@ -272,6 +288,20 @@ const WorkCard = ({ title, icon, to, loading, empty, children }) => (
     </div>
     <div className="p-2 min-h-[170px]">
       {loading ? <p className="py-10 text-center text-slate-500">Cargando...</p> : React.Children.count(children) === 0 ? <p className="py-10 text-center text-slate-500">{empty}</p> : children}
+    </div>
+  </div>
+);
+
+const ReminderRow = ({ cita, compact }) => (
+  <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-800/80 transition-all text-slate-300">
+    <span className="w-14 shrink-0 text-center font-bold text-blue-400">{cita.horaInicio || cita.hora || '--:--'}</span>
+    <Link to="/citas" className="min-w-0 flex-1 no-underline">
+      <strong className="block text-white truncate">{getPatientNameFrom(cita)}</strong>
+      <small className="text-slate-400">{compact ? cita.estado || 'Por confirmar' : cita.motivo || cita.estado || 'Cita programada'}</small>
+    </Link>
+    <div className="flex shrink-0 gap-1">
+      <a href={buildWhatsAppUrl({ phone: getPatientPhoneFrom(cita), message: appointmentReminderMessage(cita) })} target="_blank" rel="noreferrer" className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-bold text-emerald-300 no-underline hover:bg-emerald-500/20">WA</a>
+      <button type="button" onClick={() => downloadAppointmentIcs(cita)} className="rounded-lg border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-[11px] font-bold text-purple-300 hover:bg-purple-500/20">ICS</button>
     </div>
   </div>
 );

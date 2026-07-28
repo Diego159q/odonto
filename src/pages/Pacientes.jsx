@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { pacienteService } from '../services/endpoints';
 import { toast } from 'react-toastify';
+import { buildWhatsAppUrl, patientFollowUpMessage } from '../utils/noApiAutomation';
 
 const PAGE_SIZE = 10;
 
@@ -121,6 +122,9 @@ const Pacientes = () => {
 
   const renderActions = (paciente) => (
     <div className="flex items-center justify-end gap-1.5">
+      <button type="button" title="Enviar WhatsApp" onClick={() => window.open(buildWhatsAppUrl({ phone: paciente.telefono, message: patientFollowUpMessage(paciente) }), '_blank', 'noopener,noreferrer')} className="p-2 rounded-xl text-emerald-400 hover:bg-emerald-500/10">
+        <span className="material-symbols-outlined text-lg">chat</span>
+      </button>
       <button type="button" title="Abrir expediente" onClick={() => navigate(`/pacientes/${paciente.id}`)} className="p-2 rounded-xl text-blue-400 hover:bg-blue-500/10">
         <span className="material-symbols-outlined text-lg">folder_open</span>
       </button>
@@ -265,8 +269,9 @@ const Pacientes = () => {
                   <p className="m-0"><strong className="text-slate-400">Telefono:</strong> {paciente.telefono || '-'}</p>
                   <p className="m-0"><strong className="text-slate-400">Email:</strong> {paciente.email || '-'}</p>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => navigate(`/odontograma/paciente/${paciente.id}`)} className="rounded-xl bg-slate-700/80 hover:bg-slate-700 text-blue-400 text-xs font-semibold py-2 border border-slate-600/50">Odontograma</button>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <button type="button" onClick={() => window.open(buildWhatsAppUrl({ phone: paciente.telefono, message: patientFollowUpMessage(paciente) }), '_blank', 'noopener,noreferrer')} className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20">WhatsApp</button>
+                  <button type="button" onClick={() => navigate(`/odontograma/paciente/${paciente.id}`)} className="rounded-xl bg-slate-700/80 hover:bg-slate-700 text-blue-400 text-xs font-semibold py-2 border border-slate-600/50">Odonto</button>
                   <button type="button" onClick={() => navigate(`/pacientes/${paciente.id}`)} className="rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold py-2 shadow-md">Expediente</button>
                 </div>
               </div>
