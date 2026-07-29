@@ -7,7 +7,7 @@ const Header = ({ onMenuClick, theme, onToggleTheme }) => {
   const navigate = useNavigate();
 
   return (
-    <header className="h-[86px] bg-[#0F172A] border-b border-slate-700/50 flex items-center justify-between gap-4 px-6 lg:px-8 sticky top-0 z-40 shadow-sm">
+    <header className="app-topbar h-[86px] bg-[#0F172A] border-b border-slate-700/50 flex items-center justify-between gap-4 px-6 lg:px-8 sticky top-0 z-40 shadow-sm">
       <div className="flex items-center gap-4 min-w-0 flex-1">
         <button
           type="button"
@@ -17,12 +17,12 @@ const Header = ({ onMenuClick, theme, onToggleTheme }) => {
         >
           <span className="material-symbols-outlined">menu</span>
         </button>
-        <div className="flex items-center flex-1 max-w-[385px] bg-slate-800/90 border border-slate-700/80 rounded-xl px-4 py-2.5 text-slate-500 shadow-inner focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+        <div className="app-search flex items-center flex-1 max-w-[385px] bg-slate-800/90 border border-slate-700/80 rounded-xl px-4 py-2.5 text-slate-500 shadow-inner focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
           <span className="material-symbols-outlined text-[20px]">search</span>
           <input
             type="search"
             placeholder="Buscar pacientes, citas, DNI..."
-            className="w-full bg-transparent border-0 px-2 text-sm text-white placeholder-slate-500 outline-none focus:shadow-none focus:ring-0"
+            className="app-search-input w-full bg-transparent border-0 px-2 text-sm text-white placeholder-slate-500 outline-none focus:shadow-none focus:ring-0"
             onKeyDown={(event) => {
               if (event.key === 'Enter' && event.currentTarget.value.trim()) {
                 navigate(`/pacientes?search=${encodeURIComponent(event.currentTarget.value.trim())}`);
@@ -35,7 +35,7 @@ const Header = ({ onMenuClick, theme, onToggleTheme }) => {
         <button
           type="button"
           onClick={onToggleTheme}
-          className="p-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-colors border border-transparent hover:border-slate-700 app-icon-button"
+          className="app-topbar-button p-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-colors border border-transparent hover:border-slate-700 app-icon-button"
           title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
         >
           <span className="material-symbols-outlined text-[22px]">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
@@ -43,18 +43,18 @@ const Header = ({ onMenuClick, theme, onToggleTheme }) => {
         <button
           type="button"
           onClick={() => navigate('/configuracion')}
-          className="p-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-colors border border-transparent hover:border-slate-700 app-icon-button"
+          className="app-topbar-button p-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-colors border border-transparent hover:border-slate-700 app-icon-button"
         >
           <span className="material-symbols-outlined text-[22px]">settings</span>
         </button>
         <Link
           to="/notificaciones"
-          className="relative p-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-colors border border-transparent hover:border-slate-700 no-underline"
+          className="app-topbar-button relative p-2.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition-colors border border-transparent hover:border-slate-700 no-underline"
         >
           <span className="material-symbols-outlined text-[22px]">notifications</span>
           <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-rose-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center">0</span>
         </Link>
-        <div className="flex items-center gap-3 pl-4 border-l border-slate-700/60">
+        <div className="app-user-menu flex items-center gap-3 pl-4 border-l border-slate-700/60">
           <div className="hidden sm:block text-right max-w-[180px]">
             <p className="text-sm font-['Geist'] font-semibold text-white leading-tight m-0">{user?.nombre || 'Usuario'}</p>
             <p className="text-xs text-slate-400 m-0">{user?.rol || 'ADMINISTRADOR'}</p>
