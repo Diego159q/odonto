@@ -362,6 +362,195 @@ a:not([class]):hover { color: #93C5FD; }
   background: #1D4ED8 !important;
 }
 
+/* Light mode content system: pages still use many dark Tailwind classes, so scope
+   the professional light theme to the routed content area only. */
+:root[data-theme='light'] .app-main-surface {
+  background:
+    radial-gradient(circle at 20% 0%, rgba(37, 99, 235, 0.06), transparent 28%),
+    #F6FAFE !important;
+}
+
+:root[data-theme='light'] .app-main-surface .bg-\[\#1E293B\],
+:root[data-theme='light'] .app-main-surface .bg-\[\#1E293B\]\/95,
+:root[data-theme='light'] .app-main-surface .bg-slate-800,
+:root[data-theme='light'] .app-main-surface .bg-slate-800\/40,
+:root[data-theme='light'] .app-main-surface .bg-slate-800\/50,
+:root[data-theme='light'] .app-main-surface .bg-slate-800\/60,
+:root[data-theme='light'] .app-main-surface .bg-slate-800\/70,
+:root[data-theme='light'] .app-main-surface .bg-slate-800\/80,
+:root[data-theme='light'] .app-main-surface .bg-slate-800\/90 {
+  background-color: #FFFFFF !important;
+}
+
+:root[data-theme='light'] .app-main-surface .bg-\[\#0F172A\],
+:root[data-theme='light'] .app-main-surface .bg-slate-950,
+:root[data-theme='light'] .app-main-surface .bg-slate-950\/70,
+:root[data-theme='light'] .app-main-surface .bg-slate-900,
+:root[data-theme='light'] .app-main-surface .bg-slate-900\/40,
+:root[data-theme='light'] .app-main-surface .bg-slate-900\/50,
+:root[data-theme='light'] .app-main-surface .bg-slate-900\/60,
+:root[data-theme='light'] .app-main-surface .bg-slate-900\/80 {
+  background-color: #F8FAFC !important;
+}
+
+:root[data-theme='light'] .app-main-surface .bg-slate-700,
+:root[data-theme='light'] .app-main-surface .bg-slate-700\/60,
+:root[data-theme='light'] .app-main-surface .bg-slate-700\/70,
+:root[data-theme='light'] .app-main-surface .bg-slate-700\/80 {
+  background-color: #EEF4FF !important;
+}
+
+:root[data-theme='light'] .app-main-surface .border-slate-700,
+:root[data-theme='light'] .app-main-surface .border-slate-700\/40,
+:root[data-theme='light'] .app-main-surface .border-slate-700\/50,
+:root[data-theme='light'] .app-main-surface .border-slate-700\/60,
+:root[data-theme='light'] .app-main-surface .border-slate-600,
+:root[data-theme='light'] .app-main-surface .border-slate-600\/50 {
+  border-color: #D8E2EE !important;
+}
+
+:root[data-theme='light'] .app-main-surface .divide-slate-700\/40 > :not([hidden]) ~ :not([hidden]),
+:root[data-theme='light'] .app-main-surface .divide-slate-700\/50 > :not([hidden]) ~ :not([hidden]),
+:root[data-theme='light'] .app-main-surface .divide-slate-700\/60 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #E2E8F0 !important;
+}
+
+:root[data-theme='light'] .app-main-surface .shadow-black\/10,
+:root[data-theme='light'] .app-main-surface .shadow-black\/20,
+:root[data-theme='light'] .app-main-surface .shadow-black\/30,
+:root[data-theme='light'] .app-main-surface .shadow-slate-950\/10,
+:root[data-theme='light'] .app-main-surface .shadow-slate-950\/15,
+:root[data-theme='light'] .app-main-surface .shadow-slate-950\/20 {
+  --tw-shadow-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+:root[data-theme='light'] .app-main-surface .text-white,
+:root[data-theme='light'] .app-main-surface .text-slate-100,
+:root[data-theme='light'] .app-main-surface .text-slate-200,
+:root[data-theme='light'] .app-main-surface .text-slate-300,
+:root[data-theme='light'] .app-main-surface h1,
+:root[data-theme='light'] .app-main-surface h2,
+:root[data-theme='light'] .app-main-surface h3,
+:root[data-theme='light'] .app-main-surface h4,
+:root[data-theme='light'] .app-main-surface h5 {
+  color: #111827 !important;
+}
+
+:root[data-theme='light'] .app-main-surface .text-slate-400,
+:root[data-theme='light'] .app-main-surface .text-slate-500,
+:root[data-theme='light'] .app-main-surface .text-slate-600,
+:root[data-theme='light'] .app-main-surface small,
+:root[data-theme='light'] .app-main-surface label {
+  color: #64748B !important;
+}
+
+:root[data-theme='light'] .app-main-surface .text-blue-400,
+:root[data-theme='light'] .app-main-surface a.text-blue-400,
+:root[data-theme='light'] .app-main-surface .material-symbols-outlined.text-blue-400 {
+  color: #2563EB !important;
+}
+
+:root[data-theme='light'] .app-main-surface .text-emerald-300,
+:root[data-theme='light'] .app-main-surface .text-emerald-400 {
+  color: #059669 !important;
+}
+
+:root[data-theme='light'] .app-main-surface .text-amber-300,
+:root[data-theme='light'] .app-main-surface .text-amber-400 {
+  color: #D97706 !important;
+}
+
+:root[data-theme='light'] .app-main-surface .text-rose-300,
+:root[data-theme='light'] .app-main-surface .text-rose-400 {
+  color: #E11D48 !important;
+}
+
+:root[data-theme='light'] .app-main-surface input,
+:root[data-theme='light'] .app-main-surface select,
+:root[data-theme='light'] .app-main-surface textarea,
+:root[data-theme='light'] .app-main-surface .form-control,
+:root[data-theme='light'] .app-main-surface .form-select {
+  background-color: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  color: #111827 !important;
+}
+
+:root[data-theme='light'] .app-main-surface input::placeholder,
+:root[data-theme='light'] .app-main-surface textarea::placeholder {
+  color: #94A3B8 !important;
+}
+
+:root[data-theme='light'] .app-main-surface .card,
+:root[data-theme='light'] .app-main-surface .table-container,
+:root[data-theme='light'] .app-main-surface .form-container,
+:root[data-theme='light'] .app-main-surface .filter-section,
+:root[data-theme='light'] .app-main-surface .chart-container,
+:root[data-theme='light'] .app-main-surface .odontograma-container,
+:root[data-theme='light'] .app-main-surface .rbc-calendar,
+:root[data-theme='light'] .app-main-surface .modal-content {
+  background: #FFFFFF !important;
+  color: #111827 !important;
+  border-color: #D8E2EE !important;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08) !important;
+}
+
+:root[data-theme='light'] .app-main-surface .card-header,
+:root[data-theme='light'] .app-main-surface .modal-header,
+:root[data-theme='light'] .app-main-surface .modal-footer,
+:root[data-theme='light'] .app-main-surface .table-header,
+:root[data-theme='light'] .app-main-surface thead,
+:root[data-theme='light'] .app-main-surface .table thead th,
+:root[data-theme='light'] .app-main-surface .table-modern thead th {
+  background: #F8FAFC !important;
+  color: #64748B !important;
+  border-color: #E2E8F0 !important;
+}
+
+:root[data-theme='light'] .app-main-surface .table,
+:root[data-theme='light'] .app-main-surface .table-modern {
+  --bs-table-bg: #FFFFFF !important;
+  --bs-table-color: #111827 !important;
+  --bs-table-border-color: #E2E8F0 !important;
+  --bs-table-hover-bg: #F8FAFC !important;
+  --bs-table-hover-color: #0F172A !important;
+  color: #111827 !important;
+}
+
+:root[data-theme='light'] .app-main-surface .table tbody td,
+:root[data-theme='light'] .app-main-surface .table-modern tbody td,
+:root[data-theme='light'] .app-main-surface td {
+  color: #334155 !important;
+  border-color: #E2E8F0 !important;
+}
+
+:root[data-theme='light'] .app-main-surface tr:hover,
+:root[data-theme='light'] .app-main-surface .hover\:bg-slate-800\/50:hover,
+:root[data-theme='light'] .app-main-surface .hover\:bg-slate-800\/60:hover,
+:root[data-theme='light'] .app-main-surface .hover\:bg-slate-800\/80:hover {
+  background-color: #F8FAFC !important;
+}
+
+:root[data-theme='light'] .app-main-surface .rbc-month-view,
+:root[data-theme='light'] .app-main-surface .rbc-time-view,
+:root[data-theme='light'] .app-main-surface .rbc-agenda-view,
+:root[data-theme='light'] .app-main-surface .rbc-header,
+:root[data-theme='light'] .app-main-surface .rbc-day-bg,
+:root[data-theme='light'] .app-main-surface .rbc-time-content,
+:root[data-theme='light'] .app-main-surface .rbc-timeslot-group,
+:root[data-theme='light'] .app-main-surface .rbc-time-header-content {
+  background: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  color: #334155 !important;
+}
+
+:root[data-theme='light'] .app-main-surface .rbc-off-range-bg {
+  background: #F1F5F9 !important;
+}
+
+:root[data-theme='light'] .app-main-surface .rbc-today {
+  background: #EEF4FF !important;
+}
+
 .page-header,
 .simple-page-header {
   display: flex;
