@@ -30,7 +30,7 @@ const Sidebar = ({ isOpen = false, onClose }) => {
   const visibleAdvanced = advancedNav.filter(item => hasRole(item.roles));
 
   return (
-    <aside className={`fixed left-0 top-0 h-screen w-64 bg-[#1E293B] text-slate-300 flex flex-col py-6 px-4 z-50 border-r border-slate-700/50 shadow-2xl shadow-slate-950/20 transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+    <aside className={`app-sidebar fixed left-0 top-0 h-screen w-64 bg-[#1E293B] text-slate-300 flex flex-col py-6 px-4 z-50 border-r border-slate-700/50 shadow-2xl shadow-slate-950/20 transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
       <div className="mb-8 px-2 flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-900/20">
           <span className="material-symbols-outlined text-[26px]">dentistry</span>
@@ -58,10 +58,10 @@ const Sidebar = ({ isOpen = false, onClose }) => {
             to={item.path}
             onClick={onClose}
             className={({ isActive }) =>
-              `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 text-sm no-underline ${
+              `sidebar-link w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 text-sm no-underline ${
                 isActive
-                  ? 'bg-slate-800 text-white font-semibold border-l-4 border-blue-500 shadow-sm'
-                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                  ? 'sidebar-link-active bg-slate-800 text-white font-semibold border-l-4 border-blue-500 shadow-sm'
+                  : 'sidebar-link-idle text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
               }`
             }
           >
@@ -86,10 +86,10 @@ const Sidebar = ({ isOpen = false, onClose }) => {
                 to={item.path}
                 onClick={onClose}
                 className={({ isActive }) =>
-                  `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 text-sm no-underline ${
+                  `sidebar-link w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 text-sm no-underline ${
                     isActive
-                      ? 'bg-slate-800 text-white font-semibold border-l-4 border-blue-500 shadow-sm'
-                      : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                      ? 'sidebar-link-active bg-slate-800 text-white font-semibold border-l-4 border-blue-500 shadow-sm'
+                      : 'sidebar-link-idle text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
                   }`
                 }
               >

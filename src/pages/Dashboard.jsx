@@ -164,7 +164,7 @@ const Dashboard = () => {
             Lo importante para atender, cobrar y confirmar sin complicarse.
           </p>
         </div>
-        <div className="bg-[#1E293B] px-4 py-2.5 rounded-xl flex items-center gap-2.5 border border-slate-700/60 shadow-xl shadow-slate-950/10">
+        <div className="app-dark-panel bg-[#1E293B] px-4 py-2.5 rounded-xl flex items-center gap-2.5 border border-slate-700/60 shadow-xl shadow-slate-950/10">
           <span className="material-symbols-outlined text-blue-400 text-[20px]">calendar_today</span>
           <span className="font-['Geist'] text-sm font-medium text-slate-200">{new Date().toLocaleDateString('es-PE')}</span>
         </div>
@@ -194,13 +194,13 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-12 gap-6">
         <div className="col-span-12 lg:col-span-8 space-y-6">
-          <section className="bg-[#1E293B] p-6 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50">
+          <section className="app-dark-panel bg-[#1E293B] p-6 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50">
             <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
               <div>
                 <h3 className="font-['Geist'] text-xl font-bold text-white m-0">Rendimiento mensual</h3>
                 <p className="text-sm text-slate-400 m-0 mt-1">Comparativa de ingresos registrados.</p>
               </div>
-              <span className="bg-slate-800 border border-slate-700 rounded-xl text-xs font-['Geist'] font-medium text-slate-200 py-2 px-3">Ultimos 6 meses</span>
+              <span className="app-dark-chip bg-slate-800 border border-slate-700 rounded-xl text-xs font-['Geist'] font-medium text-slate-200 py-2 px-3">Ultimos 6 meses</span>
             </div>
             <div className="h-64">
               {ingresosMensuales.length > 0 ? <Bar data={chartData} options={chartOptions} /> : <EmptyChart />}
@@ -211,7 +211,7 @@ const Dashboard = () => {
             </div>
           </section>
 
-          <section className="bg-[#1E293B] p-6 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50">
+          <section className="app-dark-panel bg-[#1E293B] p-6 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-['Geist'] text-xl font-bold text-white m-0">Proximas citas</h3>
               <Link to="/calendario-citas" className="text-blue-400 font-['Geist'] font-medium text-sm hover:underline flex items-center gap-1 no-underline">
@@ -225,7 +225,7 @@ const Dashboard = () => {
         </div>
 
         <aside className="col-span-12 lg:col-span-4 space-y-6">
-          <section className="bg-[#1E293B] p-6 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50">
+          <section className="app-dark-panel bg-[#1E293B] p-6 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-['Geist'] text-xl font-bold text-white m-0">Trabajo de hoy</h3>
               <button onClick={() => navigate('/citas/nueva')} className="material-symbols-outlined text-slate-300 hover:text-white p-1.5 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors">add</button>
@@ -233,7 +233,7 @@ const Dashboard = () => {
 
             <div className="space-y-4">
               {deudas.length > 0 && (
-                <div className="bg-rose-500/10 border border-rose-500/30 p-3.5 rounded-xl flex gap-3 items-start text-rose-200">
+                <div className="app-alert-panel bg-rose-500/10 border border-rose-500/30 p-3.5 rounded-xl flex gap-3 items-start text-rose-200">
                   <span className="material-symbols-outlined text-rose-400 text-xl mt-0.5">warning</span>
                   <div className="min-w-0">
                     <p className="font-['Geist'] text-xs font-bold text-rose-400 m-0">Pagos pendientes</p>
@@ -255,7 +255,7 @@ const Dashboard = () => {
             </div>
           </section>
 
-          <section className="bg-[#1E293B] p-6 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50">
+          <section className="app-dark-panel bg-[#1E293B] p-6 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50">
             <h3 className="font-['Geist'] text-xl font-bold text-white m-0">Acciones rapidas</h3>
             <p className="text-sm text-slate-400 mt-1 mb-4">Botones para las tareas mas comunes.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -285,7 +285,7 @@ const MetricCard = ({ label, value, icon, color, badge, progress }) => {
   };
   const barMap = { blue: 'bg-blue-500', amber: 'bg-amber-400', emerald: 'bg-emerald-400', rose: 'bg-rose-500' };
   return (
-    <section className="bg-[#1E293B] p-5 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50 hover:border-slate-600 hover:-translate-y-1 transition-all duration-300 min-h-[180px]">
+    <section className="app-dark-panel metric-card bg-[#1E293B] p-5 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50 hover:border-slate-600 hover:-translate-y-1 transition-all duration-300 min-h-[180px]">
       <div className="flex justify-between items-start mb-3">
         <div className={`p-2.5 rounded-xl border ${colorMap[color]}`}>
           <span className="material-symbols-outlined text-[24px]">{icon}</span>
@@ -294,7 +294,7 @@ const MetricCard = ({ label, value, icon, color, badge, progress }) => {
       </div>
       <p className="text-slate-400 font-['Geist'] text-xs font-semibold uppercase tracking-wider m-0">{label}</p>
       <p className="font-['Geist'] text-3xl font-bold text-white mt-1 mb-0">{value}</p>
-      <div className="mt-4 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+      <div className="app-progress-track mt-4 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
         <div className={`h-full ${barMap[color]} rounded-full`} style={{ width: `${progress}%` }} />
       </div>
     </section>
@@ -321,7 +321,7 @@ const AppointmentRow = ({ cita }) => {
   const date = shortDateParts(cita.fecha);
   return (
     <div className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-800/80 transition-all group border border-transparent hover:border-slate-700">
-      <div className="w-12 h-12 flex flex-col items-center justify-center bg-slate-800 text-slate-300 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
+      <div className="app-dark-chip w-12 h-12 flex flex-col items-center justify-center bg-slate-800 text-slate-300 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
         <span className="text-[10px] font-bold uppercase">{date.month}</span>
         <span className="font-bold text-lg leading-none">{date.day}</span>
       </div>
@@ -338,14 +338,14 @@ const AppointmentRow = ({ cita }) => {
 
 const TaskLine = ({ label, count, to, doneText }) => (
   <Link to={to} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-800/60 cursor-pointer transition-all border border-transparent hover:border-slate-700/50 no-underline">
-    <span className={`w-4 h-4 rounded border ${count > 0 ? 'bg-blue-600 border-blue-500' : 'border-slate-600 bg-slate-800'}`} />
+    <span className={`w-4 h-4 rounded border ${count > 0 ? 'bg-blue-600 border-blue-500' : 'app-dark-chip border-slate-600 bg-slate-800'}`} />
     <span className="text-sm text-slate-200 flex-1">{count > 0 ? label : doneText}</span>
     <span className="text-xs font-bold text-blue-400">{count}</span>
   </Link>
 );
 
 const QuickAction = ({ icon, label, onClick }) => (
-  <button type="button" onClick={onClick} className="rounded-xl border border-slate-700 bg-slate-800/70 p-3 text-left text-sm font-bold text-slate-200 hover:bg-slate-700 hover:text-white transition-colors">
+  <button type="button" onClick={onClick} className="app-dark-chip rounded-xl border border-slate-700 bg-slate-800/70 p-3 text-left text-sm font-bold text-slate-200 hover:bg-slate-700 hover:text-white transition-colors">
     <span className="material-symbols-outlined text-blue-400 align-middle mr-2 text-lg">{icon}</span>
     {label}
   </button>
@@ -354,7 +354,7 @@ const QuickAction = ({ icon, label, onClick }) => (
 const Occupancy = ({ label, value, color }) => (
   <div className="mb-3">
     <div className="flex justify-between text-xs mb-1"><span className="text-slate-300 font-medium">{label}</span><span className={`font-bold ${color === 'blue' ? 'text-blue-400' : 'text-sky-400'}`}>{value}%</span></div>
-    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className={`h-full rounded-full ${color === 'blue' ? 'bg-blue-500' : 'bg-sky-400'}`} style={{ width: `${value}%` }} /></div>
+    <div className="app-progress-track h-1.5 w-full bg-slate-800 rounded-full overflow-hidden"><div className={`h-full rounded-full ${color === 'blue' ? 'bg-blue-500' : 'bg-sky-400'}`} style={{ width: `${value}%` }} /></div>
   </div>
 );
 
