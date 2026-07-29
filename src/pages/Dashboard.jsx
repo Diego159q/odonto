@@ -12,7 +12,6 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import AiXrayModal from '../components/AiXrayModal';
 import { appointmentReminderMessage, buildWhatsAppUrl, downloadAppointmentIcs, getPatientNameFrom, getPatientPhoneFrom, paymentReminderMessage } from '../utils/noApiAutomation';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -49,7 +48,6 @@ const Dashboard = () => {
   const [citasManana, setCitasManana] = useState([]);
   const [deudas, setDeudas] = useState([]);
   const [workLoading, setWorkLoading] = useState(true);
-  const [aiOpen, setAiOpen] = useState(false);
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -143,9 +141,17 @@ const Dashboard = () => {
   const statCards = [
     { label: 'Citas hoy', value: d.citasDelDia ?? citasHoy.length, icon: 'event_available', color: 'blue', badge: '+ operativo', progress: 70 },
     { label: 'Pendientes', value: d.citasPendientes ?? citasManana.length, icon: 'person_add', color: 'amber', badge: 'Por confirmar', progress: 45 },
-    { label: 'Ingresos mes', value: formatCurrency(d.ingresosDelMes || d.ingresosMes || d.ingresosDelDia || 0), icon: 'payments', color: 'emerald', badge: 'Caja', progress: 82 },
+    { label: 'Cobrado hoy', value: formatCurrency(d.ingresosDelDia || 0), icon: 'payments', color: 'emerald', badge: 'Caja', progress: 82 },
     { label: 'Pacientes', value: d.totalPacientes ?? 0, icon: 'group', color: 'rose', badge: 'Base activa', progress: 35 },
   ];
+
+  const nextStep = deudas.length > 0
+    ? { label: 'Enviar recordatorios de pago', detail: `${deudas.length} paciente(s) con saldo pendiente`, to: '/pagos', icon: 'payments' }
+    : citasManana.length > 0
+      ? { label: 'Confirmar citas de manana', detail: `${citasManana.length} cita(s) por confirmar`, to: '/citas', icon: 'mark_chat_unread' }
+      : citasHoy.length > 0
+        ? { label: 'Revisar agenda de hoy', detail: `${citasHoy.length} cita(s) programada(s)`, to: '/calendario-citas', icon: 'calendar_today' }
+        : { label: 'Registrar nueva cita', detail: 'No hay pendientes criticos por ahora', to: '/citas/nueva', icon: 'add_circle' };
 
   return (
     <div className="dashboard-page p-6 lg:p-8 space-y-8 animate-in text-slate-300">
@@ -155,7 +161,7 @@ const Dashboard = () => {
             Resumen de la clinica
           </h1>
           <p className="text-slate-500 font-['Inter'] text-base mt-1 dashboard-subtitle">
-            Indicadores, agenda y tareas operativas para hoy.
+            Lo importante para atender, cobrar y confirmar sin complicarse.
           </p>
         </div>
         <div className="bg-[#1E293B] px-4 py-2.5 rounded-xl flex items-center gap-2.5 border border-slate-700/60 shadow-xl shadow-slate-950/10">
@@ -163,6 +169,22 @@ const Dashboard = () => {
           <span className="font-['Geist'] text-sm font-medium text-slate-200">{new Date().toLocaleDateString('es-PE')}</span>
         </div>
       </div>
+
+      <section className="rounded-2xl border border-blue-500/20 bg-blue-600 p-5 text-white shadow-xl shadow-blue-900/20 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined">{nextStep.icon}</span>
+          </div>
+          <div>
+            <p className="m-0 text-xs font-bold uppercase tracking-wider text-blue-100">Siguiente paso recomendado</p>
+            <h2 className="m-0 mt-1 font-['Geist'] text-xl font-bold text-white">{nextStep.label}</h2>
+            <p className="m-0 mt-1 text-sm text-blue-100">{nextStep.detail}</p>
+          </div>
+        </div>
+        <button type="button" onClick={() => navigate(nextStep.to)} className="rounded-xl bg-white px-5 py-3 text-sm font-bold text-blue-900 hover:bg-blue-50 self-start lg:self-auto">
+          Ir ahora
+        </button>
+      </section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
         {statCards.map((card) => (
@@ -205,7 +227,7 @@ const Dashboard = () => {
         <aside className="col-span-12 lg:col-span-4 space-y-6">
           <section className="bg-[#1E293B] p-6 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-['Geist'] text-xl font-bold text-white m-0">Tareas y alertas</h3>
+              <h3 className="font-['Geist'] text-xl font-bold text-white m-0">Trabajo de hoy</h3>
               <button onClick={() => navigate('/citas/nueva')} className="material-symbols-outlined text-slate-300 hover:text-white p-1.5 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors">add</button>
             </div>
 
@@ -221,9 +243,9 @@ const Dashboard = () => {
                 </div>
               )}
 
-              <TaskLine label="Confirmar citas de manana" count={citasManana.length} to="/citas" />
-              <TaskLine label="Enviar recordatorios de pago" count={deudas.length} to="/pagos" />
-              <TaskLine label="Revisar agenda de hoy" count={citasHoy.length} to="/calendario-citas" />
+              <TaskLine label="Confirmar citas de manana" count={citasManana.length} to="/citas" doneText="Sin citas por confirmar" />
+              <TaskLine label="Enviar recordatorios de pago" count={deudas.length} to="/pagos" doneText="Sin deudas visibles" />
+              <TaskLine label="Revisar agenda de hoy" count={citasHoy.length} to="/calendario-citas" doneText="Agenda libre" />
 
               <div className="mt-6 pt-4 border-t border-slate-700/50">
                 <h4 className="font-['Geist'] text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Ocupacion gabinetes</h4>
@@ -233,19 +255,15 @@ const Dashboard = () => {
             </div>
           </section>
 
-          <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 min-h-[198px] p-6 flex flex-col justify-between text-white shadow-2xl shadow-blue-900/30">
-            <div className="absolute right-[-20px] top-[-20px] w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="material-symbols-outlined text-blue-200">auto_awesome</span>
-                <span className="text-xs font-['Geist'] font-bold text-blue-200 uppercase tracking-wider">Nueva funcion AI</span>
-              </div>
-              <h3 className="font-['Geist'] text-xl font-bold leading-snug text-white">Analisis de radiografias</h3>
-              <p className="text-xs text-blue-100 mt-1">Diagnostico asistido para deteccion rapida de hallazgos clinicos.</p>
+          <section className="bg-[#1E293B] p-6 rounded-2xl shadow-2xl shadow-slate-950/15 border border-slate-700/50">
+            <h3 className="font-['Geist'] text-xl font-bold text-white m-0">Acciones rapidas</h3>
+            <p className="text-sm text-slate-400 mt-1 mb-4">Botones para las tareas mas comunes.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <QuickAction icon="calendar_add_on" label="Nueva cita" onClick={() => navigate('/citas/nueva')} />
+              <QuickAction icon="person_add" label="Nuevo paciente" onClick={() => navigate('/pacientes/nuevo')} />
+              <QuickAction icon="point_of_sale" label="Registrar pago" onClick={() => navigate('/pagos')} />
+              <QuickAction icon="search" label="Buscar paciente" onClick={() => navigate('/pacientes')} />
             </div>
-            <button onClick={() => setAiOpen(true)} className="mt-4 bg-white text-blue-900 px-4 py-2.5 rounded-xl font-['Geist'] font-bold text-xs self-start hover:bg-slate-100 active:scale-95 transition-all shadow-md flex items-center gap-1.5">
-              Probar ahora <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </button>
           </section>
         </aside>
       </div>
@@ -254,7 +272,6 @@ const Dashboard = () => {
         <span className="material-symbols-outlined text-[32px] group-hover:rotate-90 transition-transform">add</span>
       </button>
 
-      <AiXrayModal isOpen={aiOpen} onClose={() => setAiOpen(false)} />
     </div>
   );
 };
@@ -319,12 +336,19 @@ const AppointmentRow = ({ cita }) => {
   );
 };
 
-const TaskLine = ({ label, count, to }) => (
+const TaskLine = ({ label, count, to, doneText }) => (
   <Link to={to} className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-800/60 cursor-pointer transition-all border border-transparent hover:border-slate-700/50 no-underline">
     <span className={`w-4 h-4 rounded border ${count > 0 ? 'bg-blue-600 border-blue-500' : 'border-slate-600 bg-slate-800'}`} />
-    <span className="text-sm text-slate-200 flex-1">{label}</span>
+    <span className="text-sm text-slate-200 flex-1">{count > 0 ? label : doneText}</span>
     <span className="text-xs font-bold text-blue-400">{count}</span>
   </Link>
+);
+
+const QuickAction = ({ icon, label, onClick }) => (
+  <button type="button" onClick={onClick} className="rounded-xl border border-slate-700 bg-slate-800/70 p-3 text-left text-sm font-bold text-slate-200 hover:bg-slate-700 hover:text-white transition-colors">
+    <span className="material-symbols-outlined text-blue-400 align-middle mr-2 text-lg">{icon}</span>
+    {label}
+  </button>
 );
 
 const Occupancy = ({ label, value, color }) => (

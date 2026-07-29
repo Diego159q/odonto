@@ -1,30 +1,33 @@
-import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const mainNav = [
-  { path: '/dashboard', icon: 'dashboard', label: 'Dashboard', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
+  { path: '/dashboard', icon: 'dashboard', label: 'Inicio', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
   { path: '/calendario-citas', icon: 'calendar_month', label: 'Agenda', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
+  { path: '/citas', icon: 'event_available', label: 'Citas', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
   { path: '/pacientes', icon: 'group', label: 'Pacientes', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
-  { path: '/tratamientos', icon: 'medical_services', label: 'Tratamientos', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
-  { path: '/pagos', icon: 'payments', label: 'Pagos', roles: ['ADMINISTRADOR', 'RECEPCIONISTA'] },
+  { path: '/pagos', icon: 'payments', label: 'Caja', roles: ['ADMINISTRADOR', 'RECEPCIONISTA'] },
 ];
 
-const secondaryNav = [
-  { path: '/citas', icon: 'event_available', label: 'Lista Citas', roles: ['ADMINISTRADOR', 'ODONTOLOGA', 'RECEPCIONISTA'] },
-  { path: '/diagnosticos', icon: 'science', label: 'Diagnosticos', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
+const advancedNav = [
+  { path: '/tratamientos', icon: 'medical_services', label: 'Tratamientos', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
   { path: '/planes-tratamiento', icon: 'description', label: 'Planes', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
   { path: '/recetas', icon: 'medication', label: 'Recetas', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
+  { path: '/diagnosticos', icon: 'science', label: 'Diagnosticos', roles: ['ADMINISTRADOR', 'ODONTOLOGA'] },
   { path: '/inventario', icon: 'inventory_2', label: 'Inventario', roles: ['ADMINISTRADOR'] },
   { path: '/proveedores', icon: 'local_shipping', label: 'Proveedores', roles: ['ADMINISTRADOR'] },
-  { path: '/usuarios', icon: 'badge', label: 'Usuarios', roles: ['ADMINISTRADOR'] },
   { path: '/reportes', icon: 'bar_chart', label: 'Reportes', roles: ['ADMINISTRADOR'] },
+  { path: '/usuarios', icon: 'badge', label: 'Usuarios', roles: ['ADMINISTRADOR'] },
   { path: '/configuracion', icon: 'settings', label: 'Configuracion', roles: ['ADMINISTRADOR'] },
 ];
 
 const Sidebar = ({ isOpen = false, onClose }) => {
   const { user, hasRole, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [showAdvanced, setShowAdvanced] = useState(() => advancedNav.some((item) => location.pathname.startsWith(item.path)));
+  const visibleAdvanced = advancedNav.filter(item => hasRole(item.roles));
 
   return (
     <aside className={`fixed left-0 top-0 h-screen w-64 bg-[#1E293B] text-slate-300 flex flex-col py-6 px-4 z-50 border-r border-slate-700/50 shadow-2xl shadow-slate-950/20 transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
@@ -67,12 +70,17 @@ const Sidebar = ({ isOpen = false, onClose }) => {
           </NavLink>
         ))}
 
-        {secondaryNav.filter(item => hasRole(item.roles)).length > 0 && (
+        {visibleAdvanced.length > 0 && (
           <>
-            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 py-1 pt-4">
-              Operacion
-            </div>
-            {secondaryNav.filter(item => hasRole(item.roles)).map(item => (
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((value) => !value)}
+              className="mt-4 w-full flex items-center justify-between rounded-xl px-3.5 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:bg-slate-800/60 hover:text-slate-300"
+            >
+              <span>Opciones avanzadas</span>
+              <span className="material-symbols-outlined text-base">{showAdvanced ? 'expand_less' : 'expand_more'}</span>
+            </button>
+            {showAdvanced && visibleAdvanced.map(item => (
               <NavLink
                 key={item.path}
                 to={item.path}
